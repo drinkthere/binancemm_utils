@@ -1,0 +1,9 @@
+syntax = "proto3";
+option go_package = "protocol/pb";
+message MarketData {
+  string bestBid = 1;
+  string bestAsk = 2;
+  int64 eventTs = 3;
+  string bidSz = 4;
+  string askSz = 5;
+}
