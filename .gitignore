@@ -1,5 +1,6 @@
 .env
 node_modules
+configs/*.json
 logs/*
 mm-config/*
 .DS_Store

@@ -68,47 +68,38 @@ const scheduleStatProfit = () => {
     scheduleLoopTask(async () => {
         try {
             const tickersMap = await exchangeClient.getFuturesTickers();
-            const balances = await exchangeClient.getFuturesBalances();
+            const balances = await exchangeClient.pmGetBalance();
             let usdtBalanceArr = balances
                 .filter((item) => item.asset == "USDT")
-                .map(
-                    (item) =>
-                        parseFloat(item.balance) + parseFloat(item.crossUnPnl)
-                );
+                .map((item) => item.totalWalletBalance);
             const usdtBalance =
                 usdtBalanceArr.length == 0 ? 0 : parseFloat(usdtBalanceArr[0]);
 
             let tradingBalance = balances.reduce((total, item) => {
                 let bal = 0;
                 if (item.asset == "USDT") {
-                    bal =
-                        parseFloat(item.balance) + parseFloat(item.crossUnPnl);
+                    bal = parseFloat(item.totalWalletBalance);
                 } else {
-                    if (parseFloat(item.balance) > 0) {
-                        bal =
-                            parseFloat(
-                                tickersMap[item.asset + "USDT"]["bidPrice"]
-                            ) *
-                            (parseFloat(item.balance) +
-                                parseFloat(item.crossUnPnl));
-                    }
+                    bal =
+                        parseFloat(
+                            tickersMap[item.asset + "USDT"]["bidPrice"]
+                        ) * parseFloat(item.totalWalletBalance);
                 }
                 return total + bal;
             }, 0);
 
             const fundingBalanceArr =
                 await exchangeClient.getFundingAccountBalances();
+
             let fundingBalance = fundingBalanceArr.reduce((total, item) => {
                 let bal = 0;
                 if (item.asset == "USDT") {
                     bal = parseFloat(item.balance);
                 } else {
-                    if (parseFloat(item.free) > 0) {
-                        bal =
-                            parseFloat(
-                                tickersMap[item.asset + "USDT"]["bidPrice"]
-                            ) * parseFloat(item.free);
-                    }
+                    bal =
+                        parseFloat(
+                            tickersMap[item.asset + "USDT"]["bidPrice"]
+                        ) * parseFloat(item.balance);
                 }
                 return total + bal;
             }, 0);
@@ -116,19 +107,17 @@ const scheduleStatProfit = () => {
                 `tradingBalance=${tradingBalance}, fundingBalance=${fundingBalance}`
             );
 
-            const positions = await exchangeClient.getFuturesPositions();
+            const positions = await exchangeClient.pmGetUmPositions();
             let notionalBTCETH = 0;
             let notionalOther = 0;
             let positionsNum = 0;
             if (positions != null) {
                 for (let position of positions) {
-                    if (position.positionAmt != 0) {
-                        positionsNum++;
-                        if (["ETHUSDT", "BTCUSDT"].includes(position.symbol)) {
-                            notionalBTCETH += parseFloat(position.notional);
-                        } else {
-                            notionalOther += parseFloat(position.notional);
-                        }
+                    positionsNum++;
+                    if (["ETHUSDT", "BTCUSDT"].includes(position.symbol)) {
+                        notionalBTCETH += parseFloat(position.notional);
+                    } else {
+                        notionalOther += parseFloat(position.notional);
                     }
                 }
             }
@@ -151,15 +140,13 @@ const scheduleStatProfit = () => {
             // 获取openorders数量
             let buyOrdersNum = 0;
             let sellOrdersNum = 0;
-            const orders = await exchangeClient.getFuturesPositions();
+            const orders = await exchangeClient.pmGetUmOpenOrders();
             if (orders && orders.length > 2) {
                 for (let order of orders) {
-                    if (order.positionAmt != 0) {
-                        if (order.side == "BUY") {
-                            buyOrdersNum++;
-                        } else {
-                            sellOrdersNum++;
-                        }
+                    if (order.side == "BUY") {
+                        buyOrdersNum++;
+                    } else {
+                        sellOrdersNum++;
                     }
                 }
                 noOrders = 0;
@@ -203,7 +190,7 @@ const main = async () => {
     exchangeClient.initWsEventHandler({
         orders: orderUpdateHandler,
     });
-    exchangeClient.wsFuturesUserData();
+    exchangeClient.wsPmUserData();
 
     scheduleStatProfit();
 };

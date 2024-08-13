@@ -24,39 +24,13 @@ const exchangeClient = new BinanceClient(options);
 
 const main = async () => {
     try {
-        const balances = await exchangeClient.getFuturesBalances();
-        console.log("Futures Balance:");
+        const balances = await exchangeClient.pmGetBalance();
+        console.log("Portfolio Margin Account Balance:");
         if (balances && balances.length > 0) {
             for (let bal of balances) {
                 if (bal.balance != 0) {
-                    console.log(bal.asset, bal.balance);
-                }
-            }
-        } else {
-            console.log(`No balance`);
-        }
-        console.log();
-
-        const sbalances = await exchangeClient.getSpotBalances();
-        console.log("Spot Balance:");
-        if (sbalances && sbalances.length > 0) {
-            for (let bal of sbalances) {
-                if (bal.free != 0) {
-                    console.log(bal.asset, bal.free);
-                }
-            }
-        } else {
-            console.log(`No balance`);
-        }
-        console.log();
-
-        const fundingbalances =
-            await exchangeClient.getFundingAccountBalances();
-        console.log("Funding Account Balance:");
-        if (fundingbalances && fundingbalances.length > 0) {
-            for (let bal of fundingbalances) {
-                if (bal.free != 0) {
-                    console.log(bal.asset, bal.free);
+                    noFb = false;
+                    console.log(bal.asset, bal.totalWalletBalance);
                 }
             }
         } else {
@@ -65,7 +39,7 @@ const main = async () => {
         console.log();
 
         console.log("Current Futures Postions:");
-        const positions = await exchangeClient.getFuturesPositions();
+        const positions = await exchangeClient.pmGetUmPositions();
         let positionLen = 0;
         if (positions && positions.length > 0) {
             for (let pos of positions) {
@@ -74,7 +48,7 @@ const main = async () => {
                     console.log(
                         pos.symbol,
                         pos.positionAmt,
-                        pos.unrealizedProfit
+                        pos.unRealizedProfit
                     );
                 }
             }
@@ -85,7 +59,7 @@ const main = async () => {
         console.log();
 
         console.log("Open Orders:");
-        const openOrders = await exchangeClient.getFuturesOpenOrders();
+        const openOrders = await exchangeClient.pmGetUmOpenOrders();
         if (openOrders && openOrders.length > 0) {
             for (let order of openOrders) {
                 console.log(
@@ -101,7 +75,7 @@ const main = async () => {
             console.log("No orders");
         }
 
-        const commissionRate = await exchangeClient.getFuturesCommissionRate(
+        const commissionRate = await exchangeClient.pmGetUmCommissionRate(
             "BTCUSDT"
         );
         console.log(

@@ -7,7 +7,7 @@ sudo apt-get install nodejs npm -y
 # 安装 pm2
 
 ```Shell
-sudo npm -g pm2
+sudo npm install -g pm2
 ```
 
 # 安装 pm2-logrotate

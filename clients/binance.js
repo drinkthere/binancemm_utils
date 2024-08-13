@@ -29,174 +29,51 @@ class BinanceClient {
             keyIndex = options.keyIndex;
         }
 
+        // 初始化Binance client
         default_options["APIKEY"] = apiKeyArr[keyIndex];
         default_options["APISECRET"] = apiSecretArr[keyIndex];
 
-        // 初始化Binance client
         this.client = new Binance().options(default_options);
+
+        if (
+            typeof options["apiKey"] != "undefined" &&
+            options["apiKey"] != "" &&
+            typeof options["APISECRET"] != "undefined" &&
+            options["APISECRET"] != ""
+        ) {
+            default_options["APIKEY"] = options["apiKey"];
+            default_options["APISECRET"] = options["apiSecret"];
+            this.orderClient = new Binance().options(default_options);
+        } else {
+            this.orderClient = null;
+        }
+
+        // 下单ws
+        this.orderWs = null;
     }
 
     initWsEventHandler(handlers) {
         this.handlers = handlers;
     }
 
-    async futuresInstruments() {
-        const result = await this.client.futuresExchangeInfo();
-        return result.symbols.filter((item) => {
-            return (
-                ![
-                    "USDC",
-                    "BUSD",
-                    "DAI",
-                    "SRM",
-                    "HNT",
-                    "TOMO",
-                    "CVC",
-                    "BTS",
-                    "SC",
-                    "RAY",
-                    "FTT",
-                    "COCOS",
-                    "STRAX",
-                ].includes(item.baseAsset) &&
-                ![
-                    "CTKUSDT",
-                    "DGBUSDT",
-                    "ANTUSDT",
-                    "BLUEBIRDUSDT",
-                    "FOOTBALLUSDT",
-                ].includes(item.symbol) &&
-                item.contractType == "PERPETUAL" &&
-                item.quoteAsset == "USDT"
-            );
-        });
+    async getFuturesTickers() {
+        return await this.client.futuresQuote();
     }
 
-    async spotInstruments() {
-        const result = await this.client.exchangeInfo();
-        return result.symbols.filter((item) => {
-            return (
-                item.quoteAsset == "USDT" &&
-                ![
-                    "USDC",
-                    "BUSD",
-                    "DAI",
-                    "SRM",
-                    "HNT",
-                    "TOMO",
-                    "CVC",
-                    "BTS",
-                    "SC",
-                    "RAY",
-                    "FTT",
-                    "COCOS",
-                    "STRAX",
-                ].includes(item.baseAsset)
-            );
-        });
+    async getSpotBalances() {
+        const result = await this.client.account();
+        return result ? result.balances : null;
     }
 
-    async getFuturesSymbolConfigs() {
-        let symbolConfigs = {};
-        const result = await this.client.futuresExchangeInfo();
-        for (let symbol of result.symbols) {
-            if (
-                symbol.contractType != "PERPETUAL" ||
-                symbol.quoteAsset != "USDT" ||
-                [
-                    "USDC",
-                    "BUSD",
-                    "DAI",
-                    "SRM",
-                    "HNT",
-                    "TOMO",
-                    "CVC",
-                    "BTS",
-                    "SC",
-                    "RAY",
-                    "FTT",
-                    "COCOS",
-                    "STRAX",
-                ].includes(symbol.baseAsset)
-            ) {
-                continue;
-            }
-            if (
-                [
-                    "CTKUSDT",
-                    "DGBUSDT",
-                    "ANTUSDT",
-                    "BLUEBIRDUSDT",
-                    "FOOTBALLUSDT",
-                    "BTCUSDT",
-                    "ETHUSDT",
-                ].includes(symbol.symbol)
-            ) {
-                continue;
-            }
-            const lotSizeFilter = symbol.filters.find(
-                (filter) => filter.filterType === "LOT_SIZE"
-            );
-            symbolConfigs[symbol.symbol] = {
-                minTicker: parseFloat(lotSizeFilter.stepSize),
-            };
-        }
-        return symbolConfigs;
+    async getFuturesBalances() {
+        return await this.client.futuresBalance();
     }
 
-    // 获取指定symbols的open中的order list
-    async getFuturesOpenOrderList() {
-        const orders = await this.client.futuresOpenOrders();
-        if (orders == null || orders.length == 0) {
-            return [];
-        }
-
-        return orders.filter((item) => item.status == "NEW");
+    async getFundingAccountBalances() {
+        return await this.client.fundingBalance();
     }
 
-    // 将position格式化成标准输出
-    _formatPositions(positions) {
-        let stdPositions = [];
-        for (let item of positions) {
-            let pos;
-            if (item["positionAmt"] !== undefined) {
-                // api 更新
-                pos = {
-                    symbol: item.symbol,
-                    unrealizedProfit: parseFloat(item.unrealizedProfit),
-                    positionAmt: parseFloat(item.positionAmt),
-                    entryPrice: parseFloat(item.entryPrice),
-                };
-            } else {
-                // ws 更新
-                pos = {
-                    symbol: item.symbol,
-                    unrealizedProfit: parseFloat(item.unrealizedPnL),
-                    positionAmt: parseFloat(item.positionAmount),
-                    entryPrice: parseFloat(item.entryPrice),
-                };
-            }
-            stdPositions.push(pos);
-        }
-        return stdPositions;
-    }
-
-    // 获取futures account的信息
-    async getPositions() {
-        const account = await this.client.futuresAccount();
-        if (account == null) {
-            return null;
-        }
-
-        // 更新positions
-        let positions = account.positions;
-        if (positions == null || positions.length == 0) {
-            return null;
-        }
-        return this._formatPositions(positions);
-    }
-
-    async getPositionsWithoutFormat() {
+    async getFuturesPositions() {
         const account = await this.client.futuresAccount();
         if (account == null) {
             return null;
@@ -210,31 +87,17 @@ class BinanceClient {
         return positions;
     }
 
-    async getFuturesBalances() {
-        return await this.client.futuresBalance();
-    }
-
-    async getTradingAccountBalance() {
-        let b = 0;
-        const res = await this.client.futuresAccount();
-        if (res) {
-            b = parseFloat(res.totalWalletBalance);
+    // 获取指定symbols的open中的order list
+    async getFuturesOpenOrders() {
+        const orders = await this.client.futuresOpenOrders();
+        if (orders == null || orders.length == 0) {
+            return [];
         }
-        return b;
+        return orders.filter((item) => item.status == "NEW");
     }
 
-    async getFundingAccountBalances() {
-        return await this.client.fundingBalance();
-    }
-
-    // 获取杠杆
-    async getAllFuturesLeverage() {
-        return await this.client.futuresLeverageBracket();
-    }
-
-    // 设置symbol的杠杆
-    async setFuturesLeverage(symbol, leverage) {
-        return await this.client.futuresLeverage(symbol, leverage);
+    async getFuturesCommissionRate(symbol) {
+        return await this.client.futuresCommissionRate(symbol);
     }
 
     async getMarginRatio() {
@@ -242,11 +105,7 @@ class BinanceClient {
             let marginRatio = 0;
             const result = await this.client.futuresAccount();
             if (result != null) {
-                console.log(
-                    result["totalMarginBalance"],
-                    result["totalMaintMargin"]
-                );
-                if (parseFloat(result["totalMarginBalance"]) == 0) {
+                if (parseFloat(result["totalMaintMargin"]) == 0) {
                     marginRatio = parseFloat(result["totalMaintMargin"]);
                 } else {
                     marginRatio =
@@ -260,43 +119,9 @@ class BinanceClient {
         }
     }
 
-    genClientOrderId(cid = null, key = null) {
-        if (cid == null) {
-            if (key == null) {
-                return `O-${uuidv4().replaceAll("-", "")}`;
-            } else {
-                return `O-${uuidv4().slice(0, -4).replaceAll("-", "")}-${key}`; // 为了确保满足交易所要求，这里截掉一部分uuid的长度
-            }
-        } else {
-            // 传了cid，是用于通过open订单的cid生成close订单的cid，这里将O-替换成C-
-            return cid.replaceAll("O-", "C-");
-        }
-    }
-
-    async getFuturesTickers() {
-        return await this.client.futuresQuote();
-    }
-
-    async placeSpotMarketOrder(side, symbol, quantity) {
-        if (side.toUpperCase() == "BUY") {
-            return await this.client.marketBuy(symbol, quantity);
-        } else if (side.toUpperCase() == "SELL") {
-            return await this.client.marketSell(symbol, quantity);
-        }
-    }
-
-    async placeFuturesMarketOrder(side, symbol, quantity) {
-        side = side.toUpperCase();
-        if (side == "BUY") {
-            return await this.client.futuresMarketBuy(symbol, quantity);
-        } else if (side == "SELL") {
-            return await this.client.futuresMarketSell(symbol, quantity);
-        }
-    }
-
     async placeFuturesOrder(side, symbol, quantity, price, params) {
         side = side.toUpperCase();
-        return await this.client.futuresNewOrder(
+        return await this.client.futuresOrder(
             side.toUpperCase(),
             symbol,
             quantity,
@@ -305,222 +130,22 @@ class BinanceClient {
         );
     }
 
-    async batchPlaceFuturesOrders(orderList, isRateLimit = true) {
-        orderList = orderList.map((order) => {
-            order.quantity = order.quantity + "";
-            order.price = order.price + "";
-            return order;
-        });
-        const batchSize = 5;
-        while (orderList.length > 0) {
-            const batchParams = orderList.splice(0, batchSize);
-            const result = await this.client.futuresMultipleOrders(batchParams);
-
-            // 休眠一段时间，防止请求频率过快（根据 API 限制而定）
-            await sleep(20);
-        }
-    }
-
-    async modifyFuturesOrder(symbol, params) {
-        return await this.client.futuresModify(symbol, params);
-    }
-
-    // 批量修改orders
-    async batchModifyFuturesOrders(orderList) {
-        orderList = orderList.map((order) => {
-            order.quantity = order.quantity + "";
-            order.price = order.price + "";
-            return order;
-        });
-        // 修改通常要及时完成，这里先不做频率限制
-        const batchSize = 5;
-        while (orderList.length > 0) {
-            const batchParams = orderList.splice(0, batchSize);
-            await this.client.futuresModifyBatchOrders(batchParams);
-            await sleep(20);
-        }
-    }
-
     async cancelFuturesOrder(symbol, clientOrderId) {
         return await this.client.futuresCancel(symbol, {
             origClientOrderId: clientOrderId,
         });
     }
 
-    // 根据clientOrderId批量取消订单
-    async batchCancelFuturesOrdersByCids(symbol, clientOrderIds) {
-        // 取消通常要及时完成，这里先不做频率限制
-        const batchSize = 10;
-        while (clientOrderIds.length > 0) {
-            const batchParams = clientOrderIds.splice(0, batchSize);
-
-            await this.client.futuresCancelBatchOrders(symbol, {
-                origClientOrderIdList: JSON.stringify(batchParams),
-            });
-            await sleep(20);
-        }
-    }
-
-    async cancelAllSymbolsFuturesOrders(symbols) {
-        if (symbols && symbols.length > 0) {
-            for (let symbol of symbols) {
-                this.client.futuresCancelAll(symbol);
-            }
-        }
-    }
-
-    async cancelAllFuturesOrders(symbol) {
-        return await this.client.futuresCancelAll(symbol);
-    }
-
-    async get1HrTradingAmount(symbol) {
-        const endTime = Date.now();
-        const startTime = endTime - 3600 * 1000;
-        const result = await this.client.futuresUserTrades(symbol, {
-            startTime,
-            endTime,
-        });
-        let totalQuoteQty = 0;
-        if (result != null && result.length > 0) {
-            result.forEach((item) => {
-                totalQuoteQty += parseFloat(item.quoteQty);
-            });
-        }
-        return totalQuoteQty;
-    }
-
-    async getTradingAmount(symbol, startTime, endTime) {
-        const result = await this.client.futuresUserTrades(symbol, {
-            startTime,
-            endTime,
-        });
-        let totalQuoteQty = 0;
-        if (result != null && result.length > 0) {
-            result.forEach((item) => {
-                totalQuoteQty += parseFloat(item.quoteQty);
-            });
-        }
-        return totalQuoteQty;
-    }
-
-    async getTradingHistory(symbol, startTime, endTime) {
-        return await this.client.futuresUserTrades(symbol, {
-            startTime,
-            endTime,
-        });
-    }
-
-    async getSpotBalances() {
-        const result = await this.client.account();
-        return result ? result.balances : null;
-    }
-
-    async trasferAsset(fromAccount, toAccount, asset, amount) {
-        let type;
-        if (fromAccount == "Spot" && toAccount == "Futures") {
-            type = 1; // spot -> futures
-        } else if (fromAccount == "Futures" && toAccount == "Spot") {
-            type = 2; // futures -> spot
-        } else if (fromAccount == "Spot" && toAccount == "Delivery") {
-            type = 3; // spot -> delivery
-        } else if (fromAccount == "Delivery" && toAccount == "Spot") {
-            type = 4; // delivery -> spot
-        } else {
-            return;
-        }
-
-        return await this.client.futuresTransferAsset(asset, amount, type);
-    }
-
-    async getPositionMode() {
-        return await this.client.futuresPositionSideDual();
-    }
-
-    async setPositionMode(dualSidePosition) {
-        return await this.client.futuresChangePositionSideDual(
-            dualSidePosition
-        );
-    }
-
-    async getAssetMargin() {
-        return await this.client.futuresMultiAssetsMargin();
-    }
-
-    async setAssetMargin(multiAssetsMargin) {
-        return await this.client.futuresChangeMultiAssetsMargin(
-            multiAssetsMargin
-        );
-    }
-
-    async getFuturesCommissionRate(symbol) {
-        return await this.client.futuresCommissionRate(symbol);
-    }
-
-    // --------------------------- websocket ---------------------------
-    // 将order格式化成标准输出
-    _formatOrder(order) {
-        const filledQuantity = parseFloat(order.orderLastFilledQuantity);
-        const filledPrice = parseFloat(order.lastFilledPrice);
-        return {
-            symbol: order.symbol,
-            clientOrderId: order.clientOrderId,
-            side: order.side,
-            originalPrice: order.originalPrice,
-            originalQuantity: parseFloat(order.originalQuantity),
-            filledQuantity: filledQuantity,
-            filledNotional: filledQuantity * filledPrice,
-            orderStatus: order.orderStatus,
-            executionType: order.executionType,
-            orderTime: order.orderTradeTime,
-        };
-        // {
-        //     eventType: 'ORDER_TRADE_UPDATE',
-        //     eventTime: 1690381280972,
-        //     transaction: 1690381280968,
-        //     order: {
-        //       symbol: 'SUIUSDT',
-        //       clientOrderId: 'web_IPXK5F68vyuia4VKBSBi',
-        //       side: 'BUY',
-        //       orderType: 'LIMIT',
-        //       timeInForce: 'GTC',
-        //       originalQuantity: '169.4',
-        //       originalPrice: '0.590000',
-        //       averagePrice: '0',
-        //       stopPrice: '0',
-        //       executionType: 'NEW',
-        //       orderStatus: 'NEW',
-        //       orderId: 1555953913,
-        //       orderLastFilledQuantity: '0',
-        //       orderFilledAccumulatedQuantity: '0',
-        //       lastFilledPrice: '0',
-        //       commissionAsset: 'USDT',
-        //       commission: '0',
-        //       orderTradeTime: 1690381280968,
-        //       tradeId: 0,
-        //       bidsNotional: '99.9459999',
-        //       askNotional: '0',
-        //       isMakerSide: false,
-        //       isReduceOnly: false,
-        //       stopPriceWorkingType: 'CONTRACT_PRICE',
-        //       originalOrderType: 'LIMIT',
-        //       positionSide: 'BOTH',
-        //       closeAll: false,
-        //       activationPrice: undefined,
-        //       callbackRate: undefined,
-        //       realizedProfit: '0'
-        //     }
-        //   }
-    }
-
     // 订阅账户ws信息，主要是position和order的变化消息
-    wsFuturesAccount() {
+    wsFuturesUserData() {
         const r = this.client.websockets.userFutureData(
             false,
             (event) => {
                 if (event.eventType == "ACCOUNT_UPDATE") {
                     let positions = event.updateData.positions;
-                    const stdPositions = this._formatPositions(positions);
-                    this.handlers["positions"](stdPositions);
+                    if (this.handlers["positions"]) {
+                        this.handlers["positions"](positions);
+                    }
 
                     if (this.handlers["balances"] != null) {
                         let balances = event.updateData.balances;
@@ -531,22 +156,271 @@ class BinanceClient {
             (event) => {
                 if (event.eventType == "ORDER_TRADE_UPDATE") {
                     let order = event.order;
-                    const stdOrder = this._formatOrder(order);
-                    this.handlers["orders"]([stdOrder]);
+                    if (this.handlers["orders"]) {
+                        const stdOrder = this._formatOrder(order);
+                        this.handlers["orders"]([stdOrder]);
+                    }
                 }
             }
         );
     }
 
-    // 订阅bookticker消息
-    async wsFuturesBookTicker(symbols) {
-        for (let symbol of symbols) {
-            this.client.futuresBookTickerStream(
-                symbol,
-                this.handlers["tickers"]
-            );
-            await sleep(50);
+    _formatOrder(order) {
+        const filledQuantity = parseFloat(order.orderLastFilledQuantity);
+        const filledPrice = parseFloat(order.lastFilledPrice);
+        return {
+            symbol: order.symbol,
+            clientOrderId: order.clientOrderId,
+            side: order.side,
+            originalPrice: order.originalPrice,
+            originalQuantity: parseFloat(order.originalQuantity),
+            lastFilledPrice: filledPrice,
+            lastFilledQuantity: filledQuantity,
+            lastFilledNotional: filledQuantity * filledPrice,
+            orderStatus: order.orderStatus,
+            executionType: order.executionType,
+            orderTime: order.orderTradeTime,
+        };
+        // {
+        //     eventType: 'ORDER_TRADE_UPDATE',
+        //     eventTime: 1722504114187,
+        //     transaction: 1722504114184,
+        //     businessUnit: 'UM',
+        //     order: {
+        //       symbol: 'BTCUSDT',
+        //       clientOrderId: 'web_c4bgQ9BsKyc4j3nTp6e5',
+        //       side: 'BUY',
+        //       orderType: 'LIMIT',
+        //       timeInForce: 'GTC',
+        //       originalQuantity: '0.002',
+        //       originalPrice: '64000',
+        //       averagePrice: '0',
+        //       stopPrice: '0',
+        //       executionType: 'NEW',
+        //       orderStatus: 'NEW',
+        //       orderId: 383538030784,
+        //       orderLastFilledQuantity: '0',
+        //       orderFilledAccumulatedQuantity: '0',
+        //       lastFilledPrice: '0',
+        //       commissionAsset: 'USDT',
+        //       commission: '0',
+        //       orderTradeTime: 1722504114184,
+        //       tradeId: 0,
+        //       bidsNotional: '128',
+        //       askNotional: '0',
+        //       isMakerSide: false,
+        //       isReduceOnly: false,
+        //       positionSide: 'LONG',
+        //       realizedProfit: '0',
+        //       activationPrice: undefined
+        //     }
+        // }
+    }
+
+    async umGetMarginRatio() {
+        try {
+            let marginRatio = 0;
+            const result = await this.client.pmGetAccount();
+            if (result != null) {
+                // console.log(
+                //     result["totalAvailableBalance"],
+                //     result["accountMaintMargin"]
+                // );
+                if (parseFloat(result["accountMaintMargin"]) == 0) {
+                    marginRatio = parseFloat(result["totalAvailableBalance"]);
+                } else {
+                    marginRatio =
+                        parseFloat(result["totalAvailableBalance"]) /
+                        parseFloat(result["accountMaintMargin"]);
+                }
+            }
+            return marginRatio;
+        } catch (e) {
+            console.error("getMarginRatio", e);
         }
+    }
+
+    // 获取统一账户信息
+    async pmGetAccount() {
+        return await this.client.pmGetAccount();
+    }
+
+    // 获取统一账户的余额
+    async pmGetBalance() {
+        return await this.client.pmGetBalance();
+    }
+
+    // 获取统一账户的Um持仓
+    async pmGetUmPositions() {
+        return await this.client.pmGetUmPositions();
+    }
+
+    // 获取统一账户的Um 订单
+    async pmGetUmOpenOrders() {
+        return await this.client.pmGetUmOpenOrders();
+    }
+
+    // 获取统一账户的Um commission rate
+    async pmGetUmCommissionRate(symbol) {
+        return await this.client.pmGetUmCommissionRate(symbol);
+    }
+
+    // 获取统一账户的Um commission rate
+    async pmPlaceUmOrder(side, symbol, quantity, price, params) {
+        side = side.toUpperCase();
+        return await this.client.pmPlaceOrder(
+            side.toUpperCase(),
+            symbol,
+            quantity,
+            price,
+            params
+        );
+    }
+
+    async pmCancelOrder(symbol, clientOrderId) {
+        return await this.client.pmCancelOrder(symbol, {
+            origClientOrderId: clientOrderId,
+        });
+    }
+
+    pmInitWsEventHandler(handlers) {
+        this.pmHandlers = handlers;
+    }
+
+    wsPmUserData() {
+        const r = this.client.websockets.userPmData(
+            (event) => {
+                if (event.eventType == "ACCOUNT_UPDATE") {
+                    let positions = event.updateData.positions;
+                    //const stdPositions = this._formatPositions(positions);
+                    if (this.pmHandlers["positions"] != null) {
+                        this.pmHandlers["positions"](positions);
+                    }
+
+                    if (this.pmHandlers["balances"] != null) {
+                        let balances = event.updateData.balances;
+                        this.pmHandlers["balances"](balances);
+                    }
+                }
+            },
+            (event) => {
+                if (event.eventType == "ORDER_TRADE_UPDATE") {
+                    let order = event.order;
+                    if (this.pmHandlers["orders"] != null) {
+                        const stdOrder = this._pmFormatOrder(order);
+                        this.handlers["orders"]([stdOrder]);
+                    }
+                }
+            }
+        );
+    }
+
+    _pmFormatOrder(order) {
+        const filledQuantity = parseFloat(order.orderLastFilledQuantity);
+        const filledPrice = parseFloat(order.lastFilledPrice);
+        return {
+            symbol: order.symbol,
+            clientOrderId: order.clientOrderId,
+            side: order.side,
+            originalPrice: order.originalPrice,
+            originalQuantity: parseFloat(order.originalQuantity),
+            lastFilledPrice: filledPrice,
+            lastFilledQuantity: filledQuantity,
+            lastFilledNotional: filledQuantity * filledPrice,
+            orderStatus: order.orderStatus,
+            executionType: order.executionType,
+            orderTime: order.orderTradeTime,
+        };
+        // {
+        //     eventType: 'ORDER_TRADE_UPDATE',
+        //     eventTime: 1722504114187,
+        //     transaction: 1722504114184,
+        //     businessUnit: 'UM',
+        //     order: {
+        //       symbol: 'BTCUSDT',
+        //       clientOrderId: 'web_c4bgQ9BsKyc4j3nTp6e5',
+        //       side: 'BUY',
+        //       orderType: 'LIMIT',
+        //       timeInForce: 'GTC',
+        //       originalQuantity: '0.002',
+        //       originalPrice: '64000',
+        //       averagePrice: '0',
+        //       stopPrice: '0',
+        //       executionType: 'NEW',
+        //       orderStatus: 'NEW',
+        //       orderId: 383538030784,
+        //       orderLastFilledQuantity: '0',
+        //       orderFilledAccumulatedQuantity: '0',
+        //       lastFilledPrice: '0',
+        //       commissionAsset: 'USDT',
+        //       commission: '0',
+        //       orderTradeTime: 1722504114184,
+        //       tradeId: 0,
+        //       bidsNotional: '128',
+        //       askNotional: '0',
+        //       isMakerSide: false,
+        //       isReduceOnly: false,
+        //       positionSide: 'LONG',
+        //       realizedProfit: '0',
+        //       activationPrice: undefined
+        //     }
+        // }
+    }
+
+    genClientOrderId() {
+        return uuidv4().replace(/-/g, "");
+    }
+
+    wsDeliveryBookTicker() {
+        const symbol = "BTCUSD_PERP";
+        this.client.deliveryBookTickerStream(symbol, this.handlers["tickers"]);
+    }
+
+    wsFuturesBookTicker() {
+        const symbol = "BTCUSDT";
+        this.client.futuresBookTickerStream(symbol, this.handlers["tickers"]);
+    }
+
+    async wsInitFuturesOrderConnection(callback) {
+        if (this.orderClient == null) {
+            console.log("order client is not init");
+            return;
+        }
+        this.orderWs = this.orderClient.websockets.initOrderWs(callback);
+        await sleep(1000);
+        if (this.orderWs != null) {
+            this.orderClient.websockets.orderLogon(this.genClientOrderId());
+        }
+    }
+
+    wsPlaceOrder(symbol, side, quantity, price, params = {}) {
+        if (this.orderClient == null) {
+            console.log("order client is not init");
+            return;
+        }
+
+        const reqId = this.genClientOrderId();
+
+        if (!params.hasOwnProperty("newClientOrderId")) {
+            params["newClientOrderId"] = reqId;
+        }
+        this.orderClient.websockets.wsPlaceOrder(
+            reqId,
+            symbol,
+            side,
+            quantity,
+            price,
+            params
+        );
+    }
+
+    wsCancelOrder(symbol, clientOrderId) {
+        if (this.orderClient == null) {
+            console.log("order client is not init");
+            return;
+        }
+        const reqId = this.genClientOrderId();
+        this.orderClient.websockets.wsCancelOrder(reqId, symbol, clientOrderId);
     }
 }
 module.exports = BinanceClient;
