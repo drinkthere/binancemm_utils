@@ -49,6 +49,22 @@ class StatOrderService {
         await this.db.insertData("tb_balance", balance);
     }
 
+    async saveCoinMmBalance(balance) {
+        await this.db.insertData("tb_cmm_balance", balance);
+    }
+
+    async saveCoinMmPnl(pnl) {
+        await this.db.insertData("tb_cmm_pnl", pnl);
+    }
+
+    async saveCoinMmMarginRatio(marginRatio) {
+        await this.db.insertData("tb_cmm_margin_ratio", marginRatio);
+    }
+
+    async saveCoinMmInfo(info) {
+        await this.db.insertData("tb_cmm_info", info);
+    }
+
     async end() {
         this.db.close();
     }

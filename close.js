@@ -1,11 +1,7 @@
-const OkxClient = require("./clients/okx");
+const BinanceClient = require("./clients/binance");
 const { v4: uuidv4 } = require("uuid");
-const {
-    scheduleLoopTask,
-    sleep,
-    convertScientificToString,
-    fileExists,
-} = require("./utils/run");
+const { sleep, fileExists, scheduleLoopTask } = require("./utils/run");
+const { log } = require("./utils/log");
 const cfgFile = `./configs/config.json`;
 if (!fileExists(cfgFile)) {
     log(`config file ${cfgFile} does not exits`);
@@ -15,26 +11,17 @@ const configs = require(cfgFile);
 
 const { account } = require("minimist")(process.argv.slice(2));
 if (account == null) {
-    log("node close.js --account=xxx");
+    log("node getAccountInfo.js --account=xxx");
     process.exit();
 }
 
 const keyIndex = configs.keyIndexMap[account];
-// 加载.env文件
-const dotenv = require("dotenv");
-dotenv.config();
-const apiKeyArr = process.env.OKX_STAT_API_KEY.split(",");
-const apiSecretArr = process.env.OKX_STAT_API_SECRET.split(",");
-const apiPasswordArr = process.env.OKX_STAT_API_PASSWORD.split(",");
 
 let options = {
-    API_KEY: apiKeyArr[keyIndex],
-    API_SECRET: apiSecretArr[keyIndex],
-    API_PASSWORD: apiPasswordArr[keyIndex],
-    market: configs.market[account],
-    localAddress: configs.okxLocalAddress[account],
+    keyIndex,
+    localAddress: configs.binanceLocalAddress[account],
 };
-const exchangeClient = new OkxClient(options);
+const exchangeClient = new BinanceClient(options);
 
 const genClientOrderId = () => {
     return uuidv4().replace(/-/g, "");
@@ -46,7 +33,8 @@ const closePositions = async () => {
         const tickerMap = await exchangeClient.getFuturesTickers();
 
         // 获取position
-        const positions = await exchangeClient.getPositions();
+        let positions = await exchangeClient.getFuturesPositions();
+        positions = positions.filter((i) => i.positionAmt != 0);
 
         let i = 0;
         if (positions != null && positions.length > 0) {
@@ -54,7 +42,7 @@ const closePositions = async () => {
                 // if (['BTC-USDT-SWAP', 'ETH-USDT-SWAP'].includes(position.symbol)) {
                 // 	continue;
                 // }
-                await exchangeClient.cancelAllFuturesOrders(position.symbol);
+                await exchangeClient.cancelFuturesOrder(position.symbol);
 
                 if (position.positionAmt == 0) {
                     continue;
@@ -76,7 +64,7 @@ const closePositions = async () => {
                         "SELL",
                         position.symbol,
                         Math.abs(position.positionAmt),
-                        ticker.bestAsk,
+                        ticker.askPrice,
                         {
                             newClientOrderId: genClientOrderId(),
                         }
@@ -86,7 +74,7 @@ const closePositions = async () => {
                         "BUY",
                         position.symbol,
                         Math.abs(position.positionAmt),
-                        ticker.bestBid,
+                        ticker.bidPrice,
                         {
                             newClientOrderId: genClientOrderId(),
                         }

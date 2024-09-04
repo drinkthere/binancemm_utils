@@ -1,0 +1,10 @@
+syntax = "proto3";
+option go_package = "protocol/pb";
+message SyncOrder {
+  string instID = 1;
+  string side = 2;
+  double price = 3;
+  double size = 4;
+  int64 orderTs = 5;
+  int64 localTs = 6;
+}

@@ -25,12 +25,36 @@ const exchangeClient = new BinanceClient(options);
 const main = async () => {
     try {
         const balances = await exchangeClient.getFuturesBalances();
+        let fbalanceLen = 0;
         console.log("Futures Balance:");
         if (balances && balances.length > 0) {
             for (let bal of balances) {
                 if (bal.balance != 0) {
+                    fbalanceLen++;
                     console.log(bal.asset, bal.balance);
                 }
+            }
+            if (fbalanceLen == 0) {
+                console.log(`No balance`);
+            }
+        } else {
+            console.log(`No balance`);
+        }
+
+        console.log();
+
+        const dbalances = await exchangeClient.getDeliveryBalances();
+        let dbalanceLen = 0;
+        console.log("Delivery Balance:");
+        if (dbalances && dbalances.length > 0) {
+            for (let bal of dbalances) {
+                if (bal.availableBalance != 0) {
+                    dbalanceLen++;
+                    console.log(bal.asset, bal.availableBalance);
+                }
+            }
+            if (dbalanceLen == 0) {
+                console.log(`No balance`);
             }
         } else {
             console.log(`No balance`);
@@ -84,7 +108,7 @@ const main = async () => {
         }
         console.log();
 
-        console.log("Open Orders:");
+        console.log("Futures Open Orders:");
         const openOrders = await exchangeClient.getFuturesOpenOrders();
         if (openOrders && openOrders.length > 0) {
             for (let order of openOrders) {
@@ -100,12 +124,59 @@ const main = async () => {
         } else {
             console.log("No orders");
         }
+        console.log();
 
-        const commissionRate = await exchangeClient.getFuturesCommissionRate(
+        const fcommissionRate = await exchangeClient.getFuturesCommissionRate(
             "BTCUSDT"
         );
         console.log(
-            `Commission Rate: ${commissionRate["makerCommissionRate"]}`
+            `Futures Commission Rate: ${fcommissionRate["makerCommissionRate"]}`
+        );
+        console.log();
+
+        console.log("Current Delivery Postions:");
+        const dPositions = await exchangeClient.getDeliveryPositions();
+        let dPositionLen = 0;
+        if (dPositions && dPositions.length > 0) {
+            for (let pos of dPositions) {
+                if (pos.positionAmt != 0) {
+                    dPositionLen++;
+                    console.log(
+                        pos.symbol,
+                        pos.positionAmt,
+                        pos.unrealizedProfit
+                    );
+                }
+            }
+            console.log("position length:", dPositionLen);
+        } else {
+            console.log("No position");
+        }
+        console.log();
+
+        console.log("Delivery Open Orders:");
+        const dOpenOrders = await exchangeClient.getDeliveryOpenOrders();
+        if (dOpenOrders && dOpenOrders.length > 0) {
+            for (let order of dOpenOrders) {
+                console.log(
+                    order.symbol,
+                    order.clientOrderId,
+                    order.side,
+                    order.price,
+                    order.origQty
+                );
+            }
+            console.log("orders length:", dOpenOrders.length);
+        } else {
+            console.log("No orders");
+        }
+        console.log();
+
+        const dcommissionRate = await exchangeClient.getDeliveryCommissionRate(
+            "BTCUSD_PERP"
+        );
+        console.log(
+            `Delivery Commission Rate: ${dcommissionRate["makerCommissionRate"]}`
         );
     } catch (e) {
         console.error(e);

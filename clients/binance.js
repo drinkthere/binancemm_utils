@@ -29,6 +29,10 @@ class BinanceClient {
             keyIndex = options.keyIndex;
         }
 
+        if (typeof options.deliveryColo !== "undefined") {
+            default_options["deliveryColo"] = options.deliveryColo;
+        }
+
         // 初始化Binance client
         default_options["APIKEY"] = apiKeyArr[keyIndex];
         default_options["APISECRET"] = apiSecretArr[keyIndex];
@@ -56,6 +60,10 @@ class BinanceClient {
         this.handlers = handlers;
     }
 
+    async getSpotTickers() {
+        return await this.client.prices();
+    }
+
     async getFuturesTickers() {
         return await this.client.futuresQuote();
     }
@@ -65,12 +73,12 @@ class BinanceClient {
         return result ? result.balances : null;
     }
 
-    async getFuturesBalances() {
-        return await this.client.futuresBalance();
-    }
-
     async getFundingAccountBalances() {
         return await this.client.fundingBalance();
+    }
+
+    async getFuturesBalances() {
+        return await this.client.futuresBalance();
     }
 
     async getFuturesPositions() {
@@ -100,7 +108,7 @@ class BinanceClient {
         return await this.client.futuresCommissionRate(symbol);
     }
 
-    async getMarginRatio() {
+    async getFuturesMarginRatio() {
         try {
             let marginRatio = 0;
             const result = await this.client.futuresAccount();
@@ -119,6 +127,51 @@ class BinanceClient {
         }
     }
 
+    async getDeliveryTickers() {
+        return await this.client.deliveryQuote();
+    }
+
+    async getDeliveryBalances() {
+        return await this.client.deliveryBalance();
+    }
+
+    async getDeliveryPositions() {
+        const account = await this.client.deliveryAccount();
+        if (account == null) {
+            return null;
+        }
+
+        // 更新positions
+        let positions = account.positions;
+        if (positions == null || positions.length == 0) {
+            return [];
+        }
+        return positions;
+    }
+
+    // 获取指定symbols的open中的order list
+    async getDeliveryOpenOrders() {
+        const orders = await this.client.deliveryOpenOrders();
+        if (orders == null || orders.length == 0) {
+            return [];
+        }
+        return orders.filter((item) => item.status == "NEW");
+    }
+    async getDeliveryCommissionRate(symbol) {
+        return await this.client.deliveryCommissionRate(symbol);
+    }
+
+    async getDeliveryMarginRatio() {
+        try {
+            const result = await this.client.deliveryAccount();
+            return result.assets.filter(
+                (item) => parseFloat(item.walletBalance) != 0
+            );
+        } catch (e) {
+            console.error("getMarginRatio", e);
+        }
+    }
+
     async placeFuturesOrder(side, symbol, quantity, price, params) {
         side = side.toUpperCase();
         return await this.client.futuresOrder(
@@ -128,6 +181,10 @@ class BinanceClient {
             price,
             params
         );
+    }
+
+    async cancelAllFuturesOrder(symbol) {
+        return await this.client.futuresCancelAll(symbol);
     }
 
     async cancelFuturesOrder(symbol, clientOrderId) {
@@ -156,6 +213,18 @@ class BinanceClient {
             (event) => {
                 if (event.eventType == "ORDER_TRADE_UPDATE") {
                     let order = event.order;
+                    if (this.handlers["orders"]) {
+                        const stdOrder = this._formatOrder(order);
+                        this.handlers["orders"]([stdOrder]);
+                    }
+                }
+            },
+            (event) => {
+                if (event.eventType == "TRIDE_LITE") {
+                    let order = event;
+                    order.orderStatus = "FILLED";
+                    order.executionType = "TRADE";
+                    order.orderTradeTime = event.transactionTime;
                     if (this.handlers["orders"]) {
                         const stdOrder = this._formatOrder(order);
                         this.handlers["orders"]([stdOrder]);
@@ -217,6 +286,68 @@ class BinanceClient {
         // }
     }
 
+    async placeDeliveryOrder(side, symbol, quantity, price, params) {
+        side = side.toUpperCase();
+        return await this.client.deliveryOrder(
+            side.toUpperCase(),
+            symbol,
+            quantity,
+            price,
+            params
+        );
+    }
+
+    async trasferAsset(fromAccount, toAccount, asset, amount) {
+        let type;
+        if (fromAccount == "Spot" && toAccount == "Futures") {
+            type = 1; // spot -> futures
+        } else if (fromAccount == "Futures" && toAccount == "Spot") {
+            type = 2; // futures -> spot
+        } else if (fromAccount == "Spot" && toAccount == "Delivery") {
+            type = 3; // spot -> delivery
+        } else if (fromAccount == "Delivery" && toAccount == "Spot") {
+            type = 4; // delivery -> spot
+        } else {
+            return;
+        }
+
+        return await this.client.futuresTransferAsset(asset, amount, type);
+    }
+
+    async cancelDeliveryOrder(symbol, clientOrderId) {
+        return await this.client.deliveryCancel(symbol, {
+            origClientOrderId: clientOrderId,
+        });
+    }
+
+    wsDeliverUserData() {
+        const r = this.client.websockets.userDeliveryData(
+            false,
+            (event) => {
+                if (event.eventType == "ACCOUNT_UPDATE") {
+                    let positions = event.updateData.positions;
+                    if (this.handlers["positions"]) {
+                        this.handlers["positions"](positions);
+                    }
+
+                    if (this.handlers["balances"] != null) {
+                        let balances = event.updateData.balances;
+                        this.handlers["balances"](balances);
+                    }
+                }
+            },
+            (event) => {
+                if (event.eventType == "ORDER_TRADE_UPDATE") {
+                    let order = event.order;
+                    if (this.handlers["orders"]) {
+                        const stdOrder = this._formatOrder(order);
+                        this.handlers["orders"]([stdOrder]);
+                    }
+                }
+            }
+        );
+    }
+
     async umGetMarginRatio() {
         try {
             let marginRatio = 0;
@@ -265,10 +396,10 @@ class BinanceClient {
         return await this.client.pmGetUmCommissionRate(symbol);
     }
 
-    // 获取统一账户的Um commission rate
+    // 统一账户下U本位合约的订单
     async pmPlaceUmOrder(side, symbol, quantity, price, params) {
         side = side.toUpperCase();
-        return await this.client.pmPlaceOrder(
+        return await this.client.pmPlaceUmOrder(
             side.toUpperCase(),
             symbol,
             quantity,
@@ -277,8 +408,28 @@ class BinanceClient {
         );
     }
 
-    async pmCancelOrder(symbol, clientOrderId) {
-        return await this.client.pmCancelOrder(symbol, {
+    // 统一账户撤销U本位合约的订单
+    async pmCancelUmOrder(symbol, clientOrderId) {
+        return await this.client.pmCancelUmOrder(symbol, {
+            origClientOrderId: clientOrderId,
+        });
+    }
+
+    // 统一账户下币本位合约的订单
+    async pmPlaceCmOrder(side, symbol, quantity, price, params) {
+        side = side.toUpperCase();
+        return await this.client.pmPlaceCmOrder(
+            side.toUpperCase(),
+            symbol,
+            quantity,
+            price,
+            params
+        );
+    }
+
+    // 统一账户撤销币本位合约的订单
+    async pmCancelCmOrder(symbol, clientOrderId) {
+        return await this.client.pmCancelCmOrder(symbol, {
             origClientOrderId: clientOrderId,
         });
     }
@@ -291,6 +442,7 @@ class BinanceClient {
         const r = this.client.websockets.userPmData(
             (event) => {
                 if (event.eventType == "ACCOUNT_UPDATE") {
+                    console.log(event);
                     let positions = event.updateData.positions;
                     //const stdPositions = this._formatPositions(positions);
                     if (this.pmHandlers["positions"] != null) {
@@ -308,7 +460,7 @@ class BinanceClient {
                     let order = event.order;
                     if (this.pmHandlers["orders"] != null) {
                         const stdOrder = this._pmFormatOrder(order);
-                        this.handlers["orders"]([stdOrder]);
+                        this.pmHandlers["orders"]([stdOrder]);
                     }
                 }
             }
