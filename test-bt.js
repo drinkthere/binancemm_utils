@@ -1,13 +1,5 @@
 const zmq = require("zeromq");
-const fs = require("fs");
 const protobuf = require("protobufjs");
-const { scheduleLoopTask, sleep } = require("./utils/run.js");
-const { log } = require("./utils/log.js");
-const TgService = require("./services/tg.js");
-const { hasUncaughtExceptionCaptureCallback } = require("process");
-
-const maxNotUpdateTime = 10000; // 10s
-const maxP99DelayTime = 50; // 35
 
 const ipc = "tcp://127.0.0.1:57002";
 

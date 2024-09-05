@@ -1,6 +1,13 @@
 module.exports = {
     apps: [
         {
+            name: "monit_okx_ticker",
+            script: "monitOkxTicker.js",
+            args: "",
+            out_file: "logs/monit-okx-ticker-out.log",
+            error_file: "logs/monit-okx-ticker-out.log",
+        },
+        {
             name: "stat_btech001",
             script: "stat.js",
             args: "--account btech001",
