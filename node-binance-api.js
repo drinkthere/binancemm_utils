@@ -2989,7 +2989,40 @@ let api = function Binance(options = {}) {
 
     /**
      * Universal Transfer requires API permissions enabled
-     * @param {string} type - ENUM , example MAIN_UMFUTURE for SPOT to USDT futures, see https://binance-docs.github.io/apidocs/spot/en/#user-universal-transfer
+     * @param {string} type - ENUM,
+     * MAIN_UMFUTURE 现货钱包转向U本位合约钱包
+     * MAIN_CMFUTURE 现货钱包转向币本位合约钱包
+     * MAIN_MARGIN 现货钱包转向杠杆全仓钱包
+     * UMFUTURE_MAIN U本位合约钱包转向现货钱包
+     * UMFUTURE_MARGIN U本位合约钱包转向杠杆全仓钱包
+     * CMFUTURE_MAIN 币本位合约钱包转向现货钱包
+     * MARGIN_MAIN 杠杆全仓钱包转向现货钱包
+     * MARGIN_UMFUTURE 杠杆全仓钱包转向U本位合约钱包
+     * MARGIN_CMFUTURE 杠杆全仓钱包转向币本位合约钱包
+     * CMFUTURE_MARGIN 币本位合约钱包转向杠杆全仓钱包
+     * ISOLATEDMARGIN_MARGIN 杠杆逐仓钱包转向杠杆全仓钱包
+     * MARGIN_ISOLATEDMARGIN 杠杆全仓钱包转向杠杆逐仓钱包
+     * ISOLATEDMARGIN_ISOLATEDMARGIN 杠杆逐仓钱包转向杠杆逐仓钱包
+     * MAIN_FUNDING 现货钱包转向资金钱包
+     * FUNDING_MAIN 资金钱包转向现货钱包
+     * FUNDING_UMFUTURE 资金钱包转向U本位合约钱包
+     * UMFUTURE_FUNDING U本位合约钱包转向资金钱包
+     * MARGIN_FUNDING 杠杆全仓钱包转向资金钱包
+     * FUNDING_MARGIN 资金钱包转向杠杆全仓钱包
+     * FUNDING_CMFUTURE 资金钱包转向币本位合约钱包
+     * CMFUTURE_FUNDING 币本位合约钱包转向资金钱包
+     * MAIN_OPTION 现货钱包转向期权钱包
+     * OPTION_MAIN 期权钱包转向现货钱包
+     * UMFUTURE_OPTION U本位合约钱包转向期权钱包
+     * OPTION_UMFUTURE 期权钱包转向U本位合约钱包
+     * MARGIN_OPTION 杠杆全仓钱包转向期权钱包
+     * OPTION_MARGIN 期权全仓钱包转向杠杆钱包
+     * FUNDING_OPTION 资金钱包转向期权钱包
+     * OPTION_FUNDING 期权钱包转向资金钱包
+     * MAIN_PORTFOLIO_MARGIN 现货钱包转向统一账户钱包
+     * PORTFOLIO_MARGIN_MAIN 统一账户钱包转向现货钱包
+     * MAIN_ISOLATED_MARGIN 现货钱包转向逐仓账户钱包
+     * ISOLATED_MARGIN_MAIN 逐仓钱包转向现货账户钱包
      * @param {string} asset - the asset - example :USDT    *
      * @param {number} amount - the callback function
      * @param {function} callback - the callback function
@@ -6907,6 +6940,92 @@ let api = function Binance(options = {}) {
                 function (error, data) {
                     if (callback) return callback(error, data);
                 }
+            );
+        },
+
+        /**
+         * Toggle BNB Burn On Spot Trade And Margin Interest
+         * @param {string} spotBNBBurn "true" or "false"; Determines whether to use BNB to pay for trading fees on SPOT
+         * @param {string} interestBNBBurn "true" or "false"; Determines whether to use BNB to pay for margin loan's interest
+         * @return {undefined}
+         */
+        enableBNBBurn: function (spotBNBBurn, interestBNBBurn) {
+            if (
+                !["true", "false"].includes(spotBNBBurn) ||
+                !["true", "false"].includes(interestBNBBurn)
+            ) {
+                console.error(
+                    `invalid params spotBNBBurn=${spotBNBBurn} and interestBNBBurn=${interestBNBBurn} should be "true" or "false"`
+                );
+                return;
+            }
+
+            const parameters = {
+                spotBNBBurn,
+                interestBNBBurn,
+            };
+            return promiseRequest("v1/bnbBurn", parameters, {
+                base: sapi,
+                type: "SIGNED",
+                method: "POST",
+            });
+        },
+
+        /**
+         * Margin account all assets
+         * @param {string} asset - the asset
+         * @param {function} callback - the callback function
+         * @return {undefined}
+         */
+        mgAllAssets: function (asset = null, callback) {
+            let parameters = {};
+            if (asset != null) {
+                parameters = { asset: asset };
+            }
+            return promiseRequest("v1/margin/allAssets", parameters, {
+                base: sapi,
+                type: "SIGNED",
+            });
+        },
+
+        /**
+         * Margin account borrow/repay
+         * @param {string} asset - the asset
+         * @param {number} amount - the amount to BORROW / REPAY
+         * @param {string} type - BORROW / REPAY
+         * @param {function} callback - the callback function
+         * @param {string} isIsolated - the isolated option
+         * @param {string} symbol - symbol for isolated margin
+         * @return {undefined}
+         */
+        mgBorrowRepay: function (
+            asset,
+            amount,
+            type,
+            callback,
+            isIsolated = "FALSE",
+            symbol = null
+        ) {
+            let parameters = Object.assign({
+                asset: asset,
+                amount: amount,
+                type: type,
+            });
+            if (isIsolated === "TRUE" && !symbol)
+                throw new Error(
+                    'If "isIsolated" = "TRUE", "symbol" must be sent'
+                );
+            const isolatedObj =
+                isIsolated === "TRUE"
+                    ? {
+                          isIsolated,
+                          symbol,
+                      }
+                    : {};
+            return promiseRequest(
+                "v1/margin/borrow-repay",
+                { ...parameters, ...isolatedObj },
+                { base: sapi, type: "SIGNED", method: "POST" }
             );
         },
 

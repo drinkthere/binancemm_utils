@@ -127,6 +127,18 @@ class BinanceClient {
         }
     }
 
+    async getMarginAllAssets() {
+        return await this.client.mgAllAssets();
+    }
+
+    async getDeliveryExchangeInfo() {
+        return await this.client.deliveryExchangeInfo();
+    }
+
+    async getDeliveryKline(symbol, interval = "30m", params = {}) {
+        return await this.client.deliveryCandles(symbol, interval, params);
+    }
+
     async getDeliveryTickers() {
         return await this.client.deliveryQuote();
     }
@@ -157,6 +169,7 @@ class BinanceClient {
         }
         return orders.filter((item) => item.status == "NEW");
     }
+
     async getDeliveryCommissionRate(symbol) {
         return await this.client.deliveryCommissionRate(symbol);
     }
@@ -170,6 +183,10 @@ class BinanceClient {
         } catch (e) {
             console.error("getMarginRatio", e);
         }
+    }
+
+    async cancelAllDeliveryOrder(symbol) {
+        return await this.client.deliveryCancelAll(symbol);
     }
 
     async placeFuturesOrder(side, symbol, quantity, price, params) {
