@@ -58,29 +58,33 @@ const main = async () => {
     });
     exchangeClient.wsPmUserData();
     scheduleLoopTask(async () => {
-        const clientOrderId = genClientOrderId();
-        const start = Date.now();
-        // 下单
-        console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
-        const result = await exchangeClient.pmPlaceCmOrder(
-            "BUY",
-            symbol,
-            1,
-            2550,
-            {
-                newClientOrderId: clientOrderId,
-            }
-        );
-        console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
-        //console.log(result)
-        console.log(`NEW ${Date.now() - start}`);
-        await sleep(2000);
-        // 撤单
-        console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
-        await exchangeClient.pmCancelCmOrder(symbol, clientOrderId);
-        console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
-        await sleep(2000);
-        //process.exit();
+        try {
+            const clientOrderId = genClientOrderId();
+            const start = Date.now();
+            // 下单
+            console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
+            const result = await exchangeClient.pmPlaceCmOrder(
+                "BUY",
+                symbol,
+                1,
+                2350,
+                {
+                    newClientOrderId: clientOrderId,
+                }
+            );
+            console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
+            console.log(result);
+            console.log(`NEW ${Date.now() - start}`);
+            await sleep(2000);
+            // 撤单
+            console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
+            await exchangeClient.pmCancelCmOrder(symbol, clientOrderId);
+            console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
+            await sleep(2000);
+            process.exit();
+        } catch (e) {
+            console.error(e);
+        }
     });
 };
 main();

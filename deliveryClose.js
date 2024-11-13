@@ -39,7 +39,7 @@ const closePositions = async () => {
         let i = 0;
         if (positions != null && positions.length > 0) {
             for (let position of positions) {
-                await exchangeClient.cancelAllDeliveryOrder(position.symbol);
+                await exchangeClient.cancelAllDeliveryOrders(position.symbol);
 
                 if (position.positionAmt == 0) {
                     continue;

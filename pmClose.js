@@ -11,7 +11,7 @@ const configs = require(cfgFile);
 
 const { account } = require("minimist")(process.argv.slice(2));
 if (account == null) {
-    log("node close.js --account=xxx");
+    log("node pmClose.js --account=xxx");
     process.exit();
 }
 
@@ -30,19 +30,19 @@ const genClientOrderId = () => {
 const closePositions = async () => {
     scheduleLoopTask(async () => {
         // 获取tickers
-        const tickerMap = await exchangeClient.getFuturesTickers();
+        const tickerMap = await exchangeClient.getDeliveryTickers();
 
         // 获取position
-        let positions = await exchangeClient.getFuturesPositions();
-        positions = positions.filter((i) => i.positionAmt != 0);
+        const cmPositions = await exchangeClient.pmGetCmPositions();
+        const positions = cmPositions.filter((i) => i.positionAmt != 0);
 
         let i = 0;
         if (positions != null && positions.length > 0) {
             for (let position of positions) {
-                // if (['BTC-USDT-SWAP', 'ETH-USDT-SWAP'].includes(position.symbol)) {
+                // if (['BTCUSD_PERP', 'ETHUSD_PERP'].includes(position.symbol)) {
                 // 	continue;
                 // }
-                await exchangeClient.cancelAllFuturesOrders(position.symbol);
+                await exchangeClient.pmCancelAllCmOrder(position.symbol);
 
                 if (position.positionAmt == 0) {
                     continue;
@@ -60,7 +60,7 @@ const closePositions = async () => {
                 );
 
                 if (position.positionAmt > 0) {
-                    await exchangeClient.placeFuturesOrder(
+                    await exchangeClient.pmPlaceCmOrder(
                         "SELL",
                         position.symbol,
                         Math.abs(position.positionAmt),
@@ -70,7 +70,7 @@ const closePositions = async () => {
                         }
                     );
                 } else if (position.positionAmt < 0) {
-                    await exchangeClient.placeFuturesOrder(
+                    await exchangeClient.pmPlaceCmOrder(
                         "BUY",
                         position.symbol,
                         Math.abs(position.positionAmt),

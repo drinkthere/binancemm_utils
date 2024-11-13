@@ -23,10 +23,11 @@ let options = {
     apiSecret: configs.keyMap[account].apiSecret,
     localAddress: configs.binanceLocalAddress[account],
 };
+
 const exchangeClient = new BinanceClient(options);
 
-const symbol = "MATICUSDT";
-const quantity = "30";
+const symbol = "POLUSDT";
+const quantity = "20";
 const price = "0.35";
 
 const orderUpdateHandler = async (orders) => {
@@ -73,19 +74,25 @@ const main = async () => {
             const start = Date.now();
             // 下单
             console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
-            exchangeClient.wsPlaceOrder(symbol, "BUY", quantity, price, {
-                newClientOrderId: clientOrderId,
-            });
+            const result = exchangeClient.wsPlaceOrder(
+                symbol,
+                "BUY",
+                quantity,
+                price,
+                {
+                    newClientOrderId: clientOrderId,
+                }
+            );
             console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
             //console.log(result)
             // console.log(`NEW ${Date.now()-start}`)
             await sleep(2000);
-            // 撤单
+            // // 撤单
             console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
             await exchangeClient.wsCancelOrder(symbol, clientOrderId);
             console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
             await sleep(2000);
-            //process.exit();
+            process.exit();
         });
     } catch (e) {
         console.error(e);

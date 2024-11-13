@@ -192,101 +192,14 @@ function calculateOrderSize(
 
 const main = async () => {
     try {
-        deleteFilesInDirectory(directory);
-
-        // 获取okx 支持的futures
-        const okxFuturesAssets = await getOkxAssetsSet("SWAP");
-        console.log(okxFuturesAssets);
-        process.exit();
-        // 获取okx futures 价格
-        const tickerMap = await okxClient.getFuturesTickers();
-
         // 获取okx 支持的spot
         const okxSpotAssets = await getOkxAssetsSet("SPOT");
+        console.log(okxSpotAssets);
+        process.exit();
 
         // 获取binance支持的futures
         let bnFuturesAssets = await getBinanceAssetsSet("FUTURES");
         bnFuturesAssets = formatBinanceFuturesAssets(bnFuturesAssets);
-
-        // 获取binance支持的spot
-        const bnSpotAssets = await getBinanceAssetsSet("SPOT");
-
-        // 以okx为主，生成配置信息
-        for (let asset of okxFuturesAssets) {
-            let referInstruments = [];
-            if (okxSpotAssets.has(asset)) {
-                referInstruments.push({
-                    exchange: "Okx",
-                    instType: "SPOT",
-                    instID: `${asset}-USDT`,
-                });
-            }
-            if (bnFuturesAssets.has(asset)) {
-                referInstruments.push({
-                    exchange: "Binance",
-                    instType: "FUTURES",
-                    instID: `${bnFuturesAssetMap[asset]}USDT`,
-                });
-            }
-            if (bnSpotAssets.has(asset)) {
-                referInstruments.push({
-                    exchange: "Binance",
-                    instType: "SPOT",
-                    instID: `${asset}USDT`,
-                });
-            }
-            referInstrumentsMap[`${asset}-USDT-SWAP`] = referInstruments;
-        }
-
-        for (let i = 0; i < accountArr.length; i++) {
-            let configs = {};
-            okxFuturesAssets.forEach((asset) => {
-                let instID = `${asset}-USDT-SWAP`;
-                if (!validInstIDs.includes(instID)) {
-                    return;
-                }
-                let instCfg = okxFuturesConfigMap[instID];
-                const ticker = tickerMap[instID];
-                const price =
-                    (parseFloat(ticker["bestBid"]) +
-                        parseFloat(ticker["bestAsk"])) /
-                    2;
-                const priceDecimal = getDecimals(instCfg.tickSz);
-                const qtyDecimal = getDecimals(instCfg.minSz);
-                const orderSize = calculateOrderSize(
-                    price,
-                    priceDecimal,
-                    parseFloat(instCfg["minSz"]),
-                    parseFloat(instCfg["ctVal"]),
-                    parseFloat(instCfg["lotSz"])
-                );
-                configs[instID] = {
-                    ContractNum: orderSize,
-                    MaxContractNum: maxPositionArr[i] * orderSize,
-                    VolPerCont: parseFloat(instCfg.ctVal),
-                    BaseAsset: asset,
-                    Leverage: 10,
-                    EffectiveNum: orderSize,
-                    Precision: [priceDecimal, qtyDecimal],
-                    FirstOrderMargin: firstOrderMarginArr[i],
-                    FirstOrderRangePercent: firstOrderRangePercentArr[i],
-                    GapSizePercent: gapSizePercentArr[i],
-                    ForgivePercent: forgivePercentArr[i],
-                    TickerShift: tickerShiftArr[i],
-                    MaxOrderNum: 3,
-                    FarOrderNum: 5,
-                    VolatilityE: 0.75,
-                    VolatilityD: volatilityDArr[i],
-                    VolatilityG: volatilityGArr[i],
-                    TickerShiftStartNum: minimumTickershiftArr[i],
-                    BreakEvenX: breakEvenXArr[i],
-                };
-            });
-            const formattedJSON = JSON.stringify(configs, null, 4);
-            const filePath = path.join(directory, `${accountArr[i]}.json`);
-            writeStringToFile(filePath, formattedJSON);
-            // console.log(JSON.stringify(Object.keys(configs), null, 4));
-        }
     } catch (e) {
         console.error(e);
     }

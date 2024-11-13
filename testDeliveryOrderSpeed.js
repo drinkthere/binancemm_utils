@@ -3,7 +3,7 @@ const { scheduleLoopTask, sleep, fileExists } = require("./utils/run");
 const { v4: uuidv4 } = require("uuid");
 const { log } = require("./utils/log");
 const BinanceClient = require("./clients/binance");
-const symbol = "ETHUSD_PERP";
+const symbol = "BNBUSD_PERP";
 const cfgFile = `./configs/config.json`;
 if (!fileExists(cfgFile)) {
     log(`config file ${cfgFile} does not exits`);
@@ -66,7 +66,7 @@ const main = async () => {
             "BUY",
             symbol,
             1,
-            2550,
+            500,
             {
                 newClientOrderId: clientOrderId,
             }

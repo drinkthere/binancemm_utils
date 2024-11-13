@@ -46,6 +46,7 @@ const orderUpdateHandler = async (orders) => {
                 const amount = quantity;
                 const price = order.lastFilledPrice;
                 const notional = order.lastFilledNotional;
+                const maker = order.isMaker;
 
                 const msg = `${account} ${clientOrderId} ${symbol} ${side} ${order.orderStatus} ${amount}@${price}`;
                 log(msg);
@@ -58,6 +59,7 @@ const orderUpdateHandler = async (orders) => {
                     amount,
                     price,
                     notional,
+                    maker,
                 });
             }
         });
@@ -78,9 +80,20 @@ const scheduleStatProfit = () => {
             const usdtBalance =
                 usdtBalanceArr.length == 0 ? 0 : parseFloat(usdtBalanceArr[0]);
 
+            let usdcBalanceArr = balances
+                .filter((item) => item.asset == "USDC")
+                .map(
+                    (item) =>
+                        parseFloat(item.balance) + parseFloat(item.crossUnPnl)
+                );
+            const usdcBalance =
+                usdcBalanceArr.length == 0 ? 0 : parseFloat(usdcBalanceArr[0]);
+
+            const usdtPlusUsdcBalance = usdtBalance + usdcBalance;
+
             let tradingBalance = balances.reduce((total, item) => {
                 let bal = 0;
-                if (item.asset == "USDT") {
+                if (item.asset == "USDT" || item.asset == "USDC") {
                     bal =
                         parseFloat(item.balance) + parseFloat(item.crossUnPnl);
                 } else {
@@ -135,6 +148,8 @@ const scheduleStatProfit = () => {
             const notionalAll = notionalBTCETH + notionalOther;
             let msg = `${account} USDTBalance=${usdtBalance.toFixed(
                 2
+            )}|USDCBalance=${usdcBalance.toFixed(
+                2
             )}|PositionDeltaWithBTCETH=${notionalBTCETH.toFixed(
                 2
             )}|PositionDeltaWithoutBTCETH$=${notionalOther.toFixed(
@@ -182,7 +197,7 @@ const scheduleStatProfit = () => {
             // 将订单写入数据库
             await statOrderService.saveBalance({
                 account,
-                usdt_balance: usdtBalance.toFixed(2),
+                usdt_balance: usdtPlusUsdcBalance.toFixed(2),
                 trading_balance: tradingBalance.toFixed(2),
                 funding_balance: fundingBalance.toFixed(2),
                 btc_eth_delta: notionalBTCETH.toFixed(2),

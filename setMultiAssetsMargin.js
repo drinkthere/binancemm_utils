@@ -9,9 +9,9 @@ if (!fileExists(cfgFile)) {
 }
 const configs = require(cfgFile);
 
-const { account, symbol } = require("minimist")(process.argv.slice(2));
+const { account } = require("minimist")(process.argv.slice(2));
 if (account == null) {
-    log("node cancel.js --account=xxx");
+    log("node getAccountInfo.js --account=xxx");
     process.exit();
 }
 
@@ -23,18 +23,17 @@ let options = {
 };
 const exchangeClient = new BinanceClient(options);
 
-const cancelOrders = async () => {
-    if (symbol != null) {
-        await exchangeClient.cancelAllFuturesOrders(symbol);
-    } else {
-        for (let sbl of ["BTC-USDT-SWAP", "ETH-USDT-SWAP", "MATIC-USDT-SWAP"]) {
-            await exchangeClient.cancelAllFuturesOrders(sbl);
-            await sleep(1000);
-        }
-    }
-};
-
 const main = async () => {
-    await cancelOrders();
+    try {
+        let res = await exchangeClient.getMultiAssetsMargin();
+        console.log(res);
+
+        await exchangeClient.setMultiAssetsMargin("true");
+
+        const aft = await exchangeClient.getMultiAssetsMargin();
+        console.log(aft);
+    } catch (e) {
+        console.error(e);
+    }
 };
 main();

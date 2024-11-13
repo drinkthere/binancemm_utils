@@ -1,7 +1,8 @@
 const zmq = require("zeromq");
 const protobuf = require("protobufjs");
 
-const ipc = "tcp://127.0.0.1:57002";
+//const ipc = "tcp://127.0.0.1:57003";
+const ipc = "tcp://127.0.0.1:56001";
 
 const pbRoot = protobuf.loadSync("./proto/bnticker.proto");
 const root = pbRoot.lookupType("BinanceTicker");
@@ -21,11 +22,7 @@ const subscribeMsg = async () => {
     // Receive messages
     for await (const [msg] of sock) {
         const message = root.decode(msg);
-        console.log(
-            message.updateID.toNumber(),
-            message.eventTs.toNumber(),
-            Date.now()
-        );
+        console.log(message.instID, message.instType, message.eventTs);
     }
 };
 

@@ -42,8 +42,8 @@ class BinanceClient {
         if (
             typeof options["apiKey"] != "undefined" &&
             options["apiKey"] != "" &&
-            typeof options["APISECRET"] != "undefined" &&
-            options["APISECRET"] != ""
+            typeof options["apiSecret"] != "undefined" &&
+            options["apiSecret"] != ""
         ) {
             default_options["APIKEY"] = options["apiKey"];
             default_options["APISECRET"] = options["apiSecret"];
@@ -101,6 +101,7 @@ class BinanceClient {
         if (orders == null || orders.length == 0) {
             return [];
         }
+
         return orders.filter((item) => item.status == "NEW");
     }
 
@@ -125,6 +126,14 @@ class BinanceClient {
         } catch (e) {
             console.error("getMarginRatio", e);
         }
+    }
+
+    async getFuturesExchangeInfo() {
+        return await this.client.futuresExchangeInfo();
+    }
+
+    async getFuturesKline(symbol, interval = "30m", params = {}) {
+        return await this.client.futuresCandles(symbol, interval, params);
     }
 
     async getMarginAllAssets() {
@@ -185,7 +194,7 @@ class BinanceClient {
         }
     }
 
-    async cancelAllDeliveryOrder(symbol) {
+    async cancelAllDeliveryOrders(symbol) {
         return await this.client.deliveryCancelAll(symbol);
     }
 
@@ -200,7 +209,7 @@ class BinanceClient {
         );
     }
 
-    async cancelAllFuturesOrder(symbol) {
+    async cancelAllFuturesOrders(symbol) {
         return await this.client.futuresCancelAll(symbol);
     }
 
@@ -208,6 +217,22 @@ class BinanceClient {
         return await this.client.futuresCancel(symbol, {
             origClientOrderId: clientOrderId,
         });
+    }
+
+    async getPositionSide() {
+        return await this.client.futuresPositionSideDual();
+    }
+
+    async setPositionSide(dual) {
+        return await this.client.futuresChangePositionSideDual(dual);
+    }
+
+    async getMultiAssetsMargin() {
+        return await this.client.futuresMultiAssetsMargin();
+    }
+
+    async setMultiAssetsMargin(multi) {
+        return await this.client.futuresChangeMultiAssetsMargin(multi);
     }
 
     // 订阅账户ws信息，主要是position和order的变化消息
@@ -266,6 +291,7 @@ class BinanceClient {
             orderStatus: order.orderStatus,
             executionType: order.executionType,
             orderTime: order.orderTradeTime,
+            isMaker: order.isMakerSide ? 1 : 0,
         };
         // {
         //     eventType: 'ORDER_TRADE_UPDATE',
@@ -329,6 +355,15 @@ class BinanceClient {
         }
 
         return await this.client.futuresTransferAsset(asset, amount, type);
+    }
+
+    async universalTransfer(type, asset, amount) {
+        return await this.client.universalTransfer(
+            type,
+            asset,
+            amount,
+            console.log
+        );
     }
 
     async cancelDeliveryOrder(symbol, clientOrderId) {
@@ -432,6 +467,33 @@ class BinanceClient {
         });
     }
 
+    async pmCancelAllUmOrder(symbol) {
+        return await this.client.pmCancelAllUmOrders(symbol);
+    }
+
+    async pmGetUmPositionSide() {
+        return await this.client.pmUmPositionSideDual();
+    }
+
+    async pmSetUmPositionSide(dual) {
+        return await this.client.pmUmChangePositionSideDual(dual);
+    }
+
+    // 获取统一账户的cm持仓
+    async pmGetCmPositions() {
+        return await this.client.pmGetCmPositions();
+    }
+
+    // 获取统一账户的Um 订单
+    async pmGetCmOpenOrders() {
+        return await this.client.pmGetCmOpenOrders();
+    }
+
+    // 获取统一账户的Um commission rate
+    async pmGetCmCommissionRate(symbol) {
+        return await this.client.pmGetCmCommissionRate(symbol);
+    }
+
     // 统一账户下币本位合约的订单
     async pmPlaceCmOrder(side, symbol, quantity, price, params) {
         side = side.toUpperCase();
@@ -451,6 +513,18 @@ class BinanceClient {
         });
     }
 
+    async pmCancelAllCmOrder(symbol) {
+        return await this.client.pmCancelAllCmOrders(symbol);
+    }
+
+    async pmGetCmPositionSide() {
+        return await this.client.pmCmPositionSideDual();
+    }
+
+    async pmSetCmPositionSide(dual) {
+        return await this.client.pmCmChangePositionSideDual(dual);
+    }
+
     pmInitWsEventHandler(handlers) {
         this.pmHandlers = handlers;
     }
@@ -459,7 +533,6 @@ class BinanceClient {
         const r = this.client.websockets.userPmData(
             (event) => {
                 if (event.eventType == "ACCOUNT_UPDATE") {
-                    console.log(event);
                     let positions = event.updateData.positions;
                     //const stdPositions = this._formatPositions(positions);
                     if (this.pmHandlers["positions"] != null) {
@@ -495,7 +568,6 @@ class BinanceClient {
             originalQuantity: parseFloat(order.originalQuantity),
             lastFilledPrice: filledPrice,
             lastFilledQuantity: filledQuantity,
-            lastFilledNotional: filledQuantity * filledPrice,
             orderStatus: order.orderStatus,
             executionType: order.executionType,
             orderTime: order.orderTradeTime,
@@ -573,7 +645,7 @@ class BinanceClient {
         if (!params.hasOwnProperty("newClientOrderId")) {
             params["newClientOrderId"] = reqId;
         }
-        this.orderClient.websockets.wsPlaceOrder(
+        return this.orderClient.websockets.wsPlaceOrder(
             reqId,
             symbol,
             side,

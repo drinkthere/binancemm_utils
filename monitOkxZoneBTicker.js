@@ -1,12 +1,12 @@
 const zmq = require("zeromq");
 const fs = require("fs");
 const protobuf = require("protobufjs");
-const { scheduleLoopTask, sleep } = require("./utils/run");
-const { log } = require("./utils/log");
+const { scheduleLoopTask, sleep } = require("./utils/run.js");
+const { log } = require("./utils/log.js");
 const TgService = require("./services/tg.js");
 const tgBot = new TgService();
 
-const ipc = "tcp://127.0.0.1:56001";
+const ipc = "tcp://127.0.0.1:56101";
 let lastAlertTime = 0;
 const alertCooldown = 5 * 60 * 1000; // 5 minutes in milliseconds
 const maxNotUpdateTime = 10000; // 10s
@@ -45,7 +45,7 @@ const checkTimeouts = () => {
             let msg = "";
             const now = Date.now();
             if (now - lastUpdateTime > maxNotUpdateTime) {
-                msg += `No message received for okx ticker for ${
+                msg += `No message received for okx zoneb ticker for ${
                     (now - lastUpdateTime) / 1000
                 }s\n`;
             }

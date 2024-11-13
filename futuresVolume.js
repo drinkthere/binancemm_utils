@@ -21,27 +21,26 @@ let options = {
 };
 const exchangeClient = new BinanceClient(options);
 
-let deliverySymbolNotionalMap = {};
+let futuresSymbolMap = {};
 const main = async () => {
     await init();
 
-    await statDailyVolume("2024-11-12");
+    await statDailyVolume("2024-10-20");
 };
 
 const init = async () => {
-    const exchangeInfo = await exchangeClient.getDeliveryExchangeInfo();
-
-    deliverySymbolNotionalMap = exchangeInfo.symbols
+    const exchangeInfo = await exchangeClient.getFuturesExchangeInfo();
+    futuresSymbolMap = exchangeInfo.symbols
         .filter(
             (item) =>
-                item.contractStatus == "TRADING" &&
-                !["BTC", "ETH"].includes(item.baseAsset)
+                item.status == "TRADING" &&
+                !["BTCUSDT", "ETHUSDT"].includes(item.symbol)
         )
         .reduce((map, item) => {
-            map[item.symbol] = item.contractSize;
+            map[item.symbol] = item.status;
             return map;
         }, {});
-    //console.log(Object.keys(deliverySymbolNotionalMap));process.exit();
+    //console.log(futuresSymbolMap);process.exit();
 };
 
 const statDailyVolume = async (endDate) => {
@@ -49,9 +48,9 @@ const statDailyVolume = async (endDate) => {
     let total = 0;
     const limit = 7;
     // 获取所有symbols在date的日K线
-    for (let symbol of Object.keys(deliverySymbolNotionalMap)) {
+    for (let symbol of Object.keys(futuresSymbolMap)) {
         let startDate = endDate;
-        const klines = await exchangeClient.getDeliveryKline(symbol, "1d", {
+        const klines = await exchangeClient.getFuturesKline(symbol, "1d", {
             endTime: convertDateToTs(endDate),
             limit,
         });
@@ -59,9 +58,7 @@ const statDailyVolume = async (endDate) => {
         for (let i = limit - 1; i >= 0; i--) {
             let notional = 0;
             if (typeof klines[i] !== "undefined") {
-                notional =
-                    parseInt(klines[i][5], 10) *
-                    parseInt(deliverySymbolNotionalMap[symbol], 10);
+                notional = parseFloat(klines[i][7]);
             }
             if (Object.keys(notionalStat).includes(startDate)) {
                 notionalStat[startDate] += notional;

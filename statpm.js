@@ -166,19 +166,19 @@ const scheduleStatProfit = () => {
                 `The num of open orders is ${ordersNum}(B:${buyOrdersNum}|S:${sellOrdersNum})`
             );
 
-            // 将订单写入数据库
-            await statOrderService.saveBalance({
-                account,
-                usdt_balance: usdtBalance.toFixed(2),
-                trading_balance: tradingBalance.toFixed(2),
-                funding_balance: fundingBalance.toFixed(2),
-                btc_eth_delta: notionalBTCETH.toFixed(2),
-                other_delta: notionalOther.toFixed(2),
-                total_delta: notionalAll.toFixed(2),
-                margin_ratio: marginRatio.toFixed(2),
-                orders_num: ordersNum,
-                position_count: positionsNum,
-            });
+            // // 将订单写入数据库
+            // await statOrderService.saveBalance({
+            //     account,
+            //     usdt_balance: usdtBalance.toFixed(2),
+            //     trading_balance: tradingBalance.toFixed(2),
+            //     funding_balance: fundingBalance.toFixed(2),
+            //     btc_eth_delta: notionalBTCETH.toFixed(2),
+            //     other_delta: notionalOther.toFixed(2),
+            //     total_delta: notionalAll.toFixed(2),
+            //     margin_ratio: marginRatio.toFixed(2),
+            //     orders_num: ordersNum,
+            //     position_count: positionsNum,
+            // });
         } catch (e) {
             console.error(e);
         }
@@ -187,10 +187,10 @@ const scheduleStatProfit = () => {
 };
 
 const main = async () => {
-    exchangeClient.initWsEventHandler({
-        orders: orderUpdateHandler,
-    });
-    exchangeClient.wsPmUserData();
+    // exchangeClient.initWsEventHandler({
+    //     orders: orderUpdateHandler,
+    // });
+    // exchangeClient.wsPmUserData();
 
     scheduleStatProfit();
 };

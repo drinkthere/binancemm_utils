@@ -74,6 +74,7 @@ const main = async () => {
         } else {
             console.log("No orders");
         }
+        console.log();
 
         const commissionRate = await exchangeClient.pmGetUmCommissionRate(
             "BTCUSDT"
@@ -81,6 +82,53 @@ const main = async () => {
         console.log(
             `Commission Rate: ${commissionRate["makerCommissionRate"]}`
         );
+        console.log();
+
+        console.log("Current Delivery Postions:");
+        const cmPositions = await exchangeClient.pmGetCmPositions();
+        let cmPositionsLen = 0;
+        if (cmPositions && cmPositions.length > 0) {
+            for (let pos of cmPositions) {
+                if (pos.positionAmt != 0) {
+                    cmPositionsLen++;
+                    console.log(
+                        pos.symbol,
+                        pos.positionAmt,
+                        pos.unRealizedProfit
+                    );
+                }
+            }
+            console.log("position length:", cmPositionsLen);
+        } else {
+            console.log("No position");
+        }
+        console.log();
+
+        console.log("Open Orders:");
+        const cmOpenOrders = await exchangeClient.pmGetCmOpenOrders();
+        if (cmOpenOrders && cmOpenOrders.length > 0) {
+            for (let order of cmOpenOrders) {
+                console.log(
+                    order.symbol,
+                    order.clientOrderId,
+                    order.side,
+                    order.price,
+                    order.origQty
+                );
+            }
+            console.log("orders length:", cmOpenOrders.length);
+        } else {
+            console.log("No orders");
+        }
+        console.log();
+
+        const cmCommissionRate = await exchangeClient.pmGetCmCommissionRate(
+            "BTCUSD_PERP"
+        );
+        console.log(
+            `Commission Rate: ${cmCommissionRate["makerCommissionRate"]}`
+        );
+        console.log();
     } catch (e) {
         console.error(e);
     }

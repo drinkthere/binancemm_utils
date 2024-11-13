@@ -3912,6 +3912,7 @@ let api = function Binance(options = {}) {
         ws.on("error", handleOrderSocketError);
         ws.on("close", handleOrderSocketClose.bind(ws, params.reconnect));
         ws.on("message", (data) => {
+            console.log(data);
             try {
                 callback(JSONbig.parse(data));
             } catch (error) {
@@ -3998,6 +3999,39 @@ let api = function Binance(options = {}) {
             return false;
         }
     };
+
+    // const wsPlaceSpotOrder = function(reqId, symbol, side, quantity, price, params) {
+    //     params.symbol = symbol;
+    //     params.side = side;
+    //     if ( quantity ) params.quantity = quantity;
+
+    //     if( typeof params.positionSide === 'undefined' && Binance.options.hedgeMode ){
+    //         params.positionSide = side === 'BUY' ? 'LONG' : 'SHORT';
+    //     }
+
+    //     if ( price ) {
+    //         params.price = price;
+    //         if ( typeof params.type === 'undefined' ) params.type = 'LIMIT';
+    //     } else {
+    //         if ( typeof params.type === 'undefined' ) params.type = 'MARKET';
+    //     }
+    //     if ( !params.timeInForce && ( params.type.includes( 'LIMIT' ) || params.type === 'STOP' || params.type === 'TAKE_PROFIT' ) ) {
+    //         params.timeInForce = 'GTX'; // Post only by default. Use GTC for limit orders.
+    //     }
+    //     params['timestamp'] = new Date().getTime() + Binance.info.timeOffset
+
+    //     const orderReq = {}
+    //     orderReq['id'] = reqId,
+    //     orderReq['method'] = 'order.place'
+    //     orderReq['params'] = params
+
+    //     const ws = Binance.orderConnections['wsFuturesOrder'];
+    //     if (ws != null) {
+    //         ws.send(JSON.stringify(orderReq))
+    //     } else{
+    //         return false
+    //     }
+    // }
 
     const wsCancelOrder = function (reqId, symbol, clientOrderId) {
         const params = {};
@@ -6062,6 +6096,21 @@ let api = function Binance(options = {}) {
                 method: "POST",
             });
         },
+        futuresMultiAssetsMargin: async (params = {}) => {
+            return promiseRequest("v1/multiAssetsMargin", params, {
+                base: fapi,
+                type: "SIGNED",
+            });
+        },
+
+        futuresChangeMultiAssetsMargin: async (multi, params = {}) => {
+            params.multiAssetsMargin = multi;
+            return promiseRequest("v1/multiAssetsMargin", params, {
+                base: fapi,
+                type: "SIGNED",
+                method: "POST",
+            });
+        },
         futuresTransferAsset: async (asset, amount, type) => {
             let params = Object.assign({ asset, amount, type });
             return promiseRequest("v1/futures/transfer", params, {
@@ -8026,6 +8075,53 @@ let api = function Binance(options = {}) {
             });
         },
 
+        pmCancelAllUmOrders: async (symbol, params = {}) => {
+            params.symbol = symbol;
+            return promiseRequest("v1/um/allOpenOrders", params, {
+                base: papi,
+                type: "SIGNED",
+                method: "DELETE",
+            });
+        },
+
+        pmUmPositionSideDual: async (params = {}) => {
+            return promiseRequest("v1/um/positionSide/dual", params, {
+                base: papi,
+                type: "SIGNED",
+            });
+        },
+
+        pmUmChangePositionSideDual: async (dualSidePosition, params = {}) => {
+            params.dualSidePosition = dualSidePosition;
+            return promiseRequest("v1/um/positionSide/dual", params, {
+                base: papi,
+                type: "SIGNED",
+                method: "POST",
+            });
+        },
+
+        pmGetCmPositions: async (params = {}) => {
+            return promiseRequest("v1/cm/positionRisk", params, {
+                base: papi,
+                type: "SIGNED",
+            });
+        },
+
+        pmGetCmOpenOrders: async (params = {}) => {
+            return promiseRequest("v1/cm/openOrders", params, {
+                base: papi,
+                type: "SIGNED",
+            });
+        },
+
+        pmGetCmCommissionRate: async (symbol, params = {}) => {
+            if (symbol) params.symbol = symbol;
+            return promiseRequest("v1/cm/commissionRate", params, {
+                base: papi,
+                type: "SIGNED",
+            });
+        },
+
         pmPlaceCmOrder: pmCmOrder,
 
         pmCancelCmOrder: async (symbol, params = {}) => {
@@ -8035,6 +8131,31 @@ let api = function Binance(options = {}) {
                 base: papi,
                 type: "SIGNED",
                 method: "DELETE",
+            });
+        },
+
+        pmCancelAllCmOrders: async (symbol, params = {}) => {
+            params.symbol = symbol;
+            return promiseRequest("v1/cm/allOpenOrders", params, {
+                base: papi,
+                type: "SIGNED",
+                method: "DELETE",
+            });
+        },
+
+        pmCmPositionSideDual: async (params = {}) => {
+            return promiseRequest("v1/cm/positionSide/dual", params, {
+                base: papi,
+                type: "SIGNED",
+            });
+        },
+
+        pmCmChangePositionSideDual: async (dualSidePosition, params = {}) => {
+            params.dualSidePosition = dualSidePosition;
+            return promiseRequest("v1/cm/positionSide/dual", params, {
+                base: papi,
+                type: "SIGNED",
+                method: "POST",
             });
         },
 

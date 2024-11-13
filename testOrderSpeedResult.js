@@ -1,6 +1,6 @@
 const fs = require("fs");
-const logFile = "ws.in.log";
-const title = "UM WS Private";
+const logFile = "1a.log";
+const title = "zoneA";
 {
     // 读取public.log文件内容
     const data = fs.readFileSync(logFile, "utf-8").trim().split("\n");

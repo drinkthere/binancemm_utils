@@ -6,4 +6,6 @@ message MarketData {
   int64 eventTs = 3;
   string bidSz = 4;
   string askSz = 5;
+  string instID = 6;
+  int64 updateID = 7;
 }
