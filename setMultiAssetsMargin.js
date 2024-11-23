@@ -29,7 +29,7 @@ const main = async () => {
         console.log(res);
 
         await exchangeClient.setMultiAssetsMargin("true");
-
+        await sleep(1000);
         const aft = await exchangeClient.getMultiAssetsMargin();
         console.log(aft);
     } catch (e) {

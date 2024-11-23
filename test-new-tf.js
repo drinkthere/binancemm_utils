@@ -9,11 +9,11 @@ const { hasUncaughtExceptionCaptureCallback } = require("process");
 const maxNotUpdateTime = 10000; // 10s
 const maxP99DelayTime = 50; // 35
 const ipcMap = {
-    tickerIPC: "tcp://127.0.0.1:20002",
+    tickerIPC: "tcp://127.0.0.1:20001",
 };
 
-const pbRoot = protobuf.loadSync("./proto/ticker.proto");
-const ticker = pbRoot.lookupType("MarketData");
+const pbRoot = protobuf.loadSync("./proto/newticker.proto");
+const ticker = pbRoot.lookupType("TickerInfo");
 // const tickerRoot = protobuf.loadSync("./proto/okxticker.proto");
 // const ticker = tickerRoot.lookupType("OkxTicker");
 
@@ -47,6 +47,7 @@ const subscribeMsg = async () => {
         // Receive messages
         for await (const [msg] of sock) {
             const message = ticker.decode(msg);
+            //console.log(message);
             console.log(message.instID, message.bestBid, message.bestAsk);
         }
     }

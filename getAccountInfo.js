@@ -178,6 +178,27 @@ const main = async () => {
         console.log(
             `Delivery Commission Rate: ${dcommissionRate["makerCommissionRate"]}`
         );
+
+        console.log("Spot Open Orders:");
+        const spotOenOrders = await exchangeClient.getSpotOpenOrders();
+        if (spotOenOrders && spotOenOrders.length > 0) {
+            for (let order of spotOenOrders) {
+                console.log(
+                    order.symbol,
+                    order.clientOrderId,
+                    order.side,
+                    order.price,
+                    order.origQty
+                );
+            }
+            console.log("orders length:", spotOenOrders.length);
+        } else {
+            console.log("No orders");
+        }
+        console.log();
+
+        const spotCommistionRate = await exchangeClient.getSpotCommissionRate();
+        console.log(spotCommistionRate);
     } catch (e) {
         console.error(e);
     }

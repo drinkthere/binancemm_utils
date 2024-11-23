@@ -1,0 +1,11 @@
+syntax = "proto3";
+option go_package = "protocol/pb";
+message TickerInfo {
+  string instID = 1;
+  double bestBid = 2;
+  double bidSz = 3;
+  double bestAsk = 4;
+  double askSz = 5;
+  int64 eventTs = 6;
+  int64 updateID = 7;
+}

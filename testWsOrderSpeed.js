@@ -9,26 +9,27 @@ if (!fileExists(cfgFile)) {
 }
 const configs = require(cfgFile);
 
-const { account } = require("minimist")(process.argv.slice(2));
+let { account, intranet } = require("minimist")(process.argv.slice(2));
 if (account == null) {
     log("node getAccountInfo.js --account=xxx");
     process.exit();
 }
-
+intranet = intranet == "true" ? true : false;
 const keyIndex = configs.keyIndexMap[account];
 
 let options = {
     keyIndex,
     apiKey: configs.keyMap[account].apiKey,
     apiSecret: configs.keyMap[account].apiSecret,
-    localAddress: configs.binanceLocalAddress[account],
+    localAddress: "172.31.16.153", //configs.binanceLocalAddress[account],
+    intranet,
 };
 
 const exchangeClient = new BinanceClient(options);
 
 const symbol = "POLUSDT";
 const quantity = "20";
-const price = "0.35";
+const price = "0.45";
 
 const orderUpdateHandler = async (orders) => {
     for (let order of orders) {
@@ -67,9 +68,15 @@ const main = async () => {
         });
         exchangeClient.wsFuturesUserData();
         exchangeClient.wsInitFuturesOrderConnection(orderCallback);
-        await sleep(1000);
+        await sleep(2000);
 
+        let limit = 100;
+        let i = 0;
         scheduleLoopTask(async () => {
+            if (i >= limit) {
+                process.exit();
+            }
+            i++;
             const clientOrderId = genClientOrderId();
             const start = Date.now();
             // 下单
@@ -86,13 +93,12 @@ const main = async () => {
             console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
             //console.log(result)
             // console.log(`NEW ${Date.now()-start}`)
-            await sleep(2000);
+            await sleep(1000);
             // // 撤单
             console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
             await exchangeClient.wsCancelOrder(symbol, clientOrderId);
             console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
-            await sleep(2000);
-            process.exit();
+            await sleep(1000);
         });
     } catch (e) {
         console.error(e);

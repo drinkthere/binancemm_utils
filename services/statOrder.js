@@ -53,6 +53,10 @@ class StatOrderService {
         await this.db.insertData("tb_cmm_balance", balance);
     }
 
+    async saveSpotBalance(balance) {
+        await this.db.insertData("tb_spot_balance", balance);
+    }
+
     async saveCoinMmPnl(pnl) {
         await this.db.insertData("tb_cmm_pnl", pnl);
     }

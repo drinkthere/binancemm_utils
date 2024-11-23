@@ -39,7 +39,7 @@ const orderUpdateHandler = async (orders) => {
         // 使用clientOrderId作为锁的key，避免并发引起的更新错误
         const clientOrderId = order.clientOrderId;
         await lock.acquire(clientOrderId, async () => {
-            if (["FILLED"].includes(order.orderStatus)) {
+            if (["FILLED", "PARTIALLY_FILLED"].includes(order.orderStatus)) {
                 const symbol = order.symbol;
                 const side = order.side;
                 const quantity = order.lastFilledQuantity;

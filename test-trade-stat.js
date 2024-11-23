@@ -1,19 +1,13 @@
 const zmq = require("zeromq");
 const fs = require("fs");
 const protobuf = require("protobufjs");
-const { scheduleLoopTask, sleep } = require("./utils/run.js");
-const { log } = require("./utils/log.js");
-const TgService = require("./services/tg.js");
-const { hasUncaughtExceptionCaptureCallback } = require("process");
 
-const maxNotUpdateTime = 10000; // 10s
-const maxP99DelayTime = 50; // 35
 const ipcMap = {
-    tickerIPC: "tcp://127.0.0.1:20002",
+    statusIPC: "tcp://127.0.0.1:25000",
 };
 
-const pbRoot = protobuf.loadSync("./proto/ticker.proto");
-const ticker = pbRoot.lookupType("MarketData");
+const pbRoot = protobuf.loadSync("./proto/tradingstatus.proto");
+const ticker = pbRoot.lookupType("TradingStatus");
 // const tickerRoot = protobuf.loadSync("./proto/okxticker.proto");
 // const ticker = tickerRoot.lookupType("OkxTicker");
 
@@ -46,8 +40,8 @@ const subscribeMsg = async () => {
 
         // Receive messages
         for await (const [msg] of sock) {
-            const message = ticker.decode(msg);
-            console.log(message.instID, message.bestBid, message.bestAsk);
+            const status = ticker.decode(msg);
+            console.log(status);
         }
     }
 };

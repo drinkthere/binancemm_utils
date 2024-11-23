@@ -11,7 +11,7 @@ const configs = require(cfgFile);
 
 const { account } = require("minimist")(process.argv.slice(2));
 if (account == null) {
-    log("node getAccountInfo.js --account=xxx");
+    log("node close.js --account=xxx");
     process.exit();
 }
 
@@ -23,26 +23,13 @@ let options = {
 };
 const exchangeClient = new BinanceClient(options);
 
+const genClientOrderId = () => {
+    return uuidv4().replace(/-/g, "");
+};
+
+const loan = async () => {};
+
 const main = async () => {
-    try {
-        let res = await exchangeClient.getPositionSide();
-        console.log(res);
-
-        await exchangeClient.setPositionSide("false");
-        await sleep(1000);
-        res = await exchangeClient.getPositionSide();
-        console.log(res);
-
-        // let res = await exchangeClient.pmGetCmPositionSide();
-        // console.log(res);
-
-        // await exchangeClient.pmSetCmPositionSide("false");
-
-        // await sleep(1000);
-        // res = await exchangeClient.pmGetCmPositionSide();
-        // console.log(res);
-    } catch (e) {
-        console.error(e);
-    }
+    loan();
 };
 main();

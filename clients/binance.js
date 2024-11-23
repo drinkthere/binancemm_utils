@@ -24,6 +24,14 @@ class BinanceClient {
             default_options["localAddress"] = options.localAddress;
         }
 
+        if (options.intranet) {
+            default_options["urls"] = {
+                fapi: "https://fapi-mm.binance.com/fapi/",
+            };
+            this.wsUrl =
+                "wss://ws-fapi-mm.binance.com/ws-fapi/v1?returnRateLimits=false";
+        }
+
         let keyIndex = 0;
         if (options.keyIndex) {
             keyIndex = options.keyIndex;
@@ -36,7 +44,8 @@ class BinanceClient {
         // 初始化Binance client
         default_options["APIKEY"] = apiKeyArr[keyIndex];
         default_options["APISECRET"] = apiSecretArr[keyIndex];
-
+        //console.log(default_options);
+        //process.exit();
         this.client = new Binance().options(default_options);
 
         if (
@@ -47,6 +56,7 @@ class BinanceClient {
         ) {
             default_options["APIKEY"] = options["apiKey"];
             default_options["APISECRET"] = options["apiSecret"];
+            //console.log(default_options);process.exit();
             this.orderClient = new Binance().options(default_options);
         } else {
             this.orderClient = null;
@@ -60,8 +70,105 @@ class BinanceClient {
         this.handlers = handlers;
     }
 
+    async getConState() {
+        return await this.client.futuresConState();
+    }
+
     async getSpotTickers() {
         return await this.client.prices();
+    }
+
+    // 获取指定symbols的open中的order list
+    async getSpotOpenOrders() {
+        const orders = await this.client.openOrders();
+        if (orders == null || orders.length == 0) {
+            return [];
+        }
+
+        return orders.filter((item) => item.status == "NEW");
+    }
+
+    async getSpotCommissionRate() {
+        const account = await this.client.account();
+        return account.commissionRates.maker;
+    }
+
+    async placeSpotOrder(side, symbol, quantity, price, params) {
+        side = side.toUpperCase();
+        return await this.client.order(
+            side.toUpperCase(),
+            symbol,
+            quantity,
+            price,
+            params
+        );
+    }
+
+    wsSpotUserData() {
+        const r = this.client.websockets.userData(
+            (event) => {
+                if (event.eventType == "outboundAccountPosition") {
+                    if (this.handlers["balances"] != null) {
+                        let balances = event.B;
+                        standardBalances = this._formatBalances(balances);
+                        this.handlers["balances"](standardBalances);
+                    }
+                } else if (event.e == "executionReport") {
+                    if (this.handlers["orders"]) {
+                        const stdOrder = this._formatSpotOrder(event);
+                        this.handlers["orders"]([stdOrder]);
+                    }
+                }
+            },
+            (event) => {
+                console.log("xxx");
+                console.log(event);
+                // if (event.eventType == "ORDER_TRADE_UPDATE") {
+                //     let order = event.order;
+                //     if (this.handlers["orders"]) {
+                //         const stdOrder = this._formatOrder(order);
+                //         this.handlers["orders"]([stdOrder]);
+                //     }
+                // }
+            }
+        );
+    }
+
+    _formatBalances(balances) {
+        const ret = [];
+        if (balances && balances.length > 0) {
+            for (let bal of balances) {
+                ret.push({
+                    asset: bal.a,
+                    free: parseFloat(bal.f),
+                    locked: parseFloat(bal.l),
+                });
+            }
+        }
+        return ret;
+    }
+
+    _formatSpotOrder(order) {
+        try {
+            const filledQuantity = parseFloat(order.l);
+            const filledPrice = parseFloat(order.L);
+            return {
+                symbol: order.s,
+                clientOrderId: order.c,
+                side: order.S,
+                originalPrice: parseFloat(order.p),
+                originalQuantity: parseFloat(order.q),
+                lastFilledPrice: filledPrice,
+                lastFilledQuantity: filledQuantity,
+                lastFilledNotional: filledQuantity * filledPrice,
+                orderStatus: order.X,
+                executionType: order.x,
+                orderTime: order.T,
+                isMaker: order.m ? 1 : 0,
+            };
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     async getFuturesTickers() {
@@ -627,7 +734,15 @@ class BinanceClient {
             console.log("order client is not init");
             return;
         }
-        this.orderWs = this.orderClient.websockets.initOrderWs(callback);
+
+        let params = {};
+        if (this.wsUrl != "" && this.wsUrl != undefined) {
+            params["wsUrl"] = this.wsUrl;
+        }
+        this.orderWs = this.orderClient.websockets.initOrderWs(
+            callback,
+            params
+        );
         await sleep(1000);
         if (this.orderWs != null) {
             this.orderClient.websockets.orderLogon(this.genClientOrderId());
