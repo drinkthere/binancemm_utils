@@ -25,10 +25,11 @@ const exchangeClient = new BinanceClient(options);
 
 const main = async () => {
     try {
-        let res = await exchangeClient.getPositionSide();
-        console.log(res);
+        // let res = await exchangeClient.getPositionSide();
+        // console.log(res);
 
-        await exchangeClient.setPositionSide("false");
+        const result = await exchangeClient.setPositionSide("false");
+        console.log(result);
         await sleep(1000);
         res = await exchangeClient.getPositionSide();
         console.log(res);

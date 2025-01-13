@@ -16,15 +16,22 @@ if (account == null) {
 }
 intranet = intranet == "true" ? true : false;
 const keyIndex = configs.keyIndexMap[account];
-
-let options = {
-    keyIndex,
-    apiKey: configs.keyMap[account].apiKey,
-    apiSecret: configs.keyMap[account].apiSecret,
-    intranet,
-};
-
-const exchangeClient = new BinanceClient(options);
+const ipArr = [
+    "172.31.16.148",
+    "172.31.16.149",
+    "172.31.16.150",
+    "172.31.16.151",
+    "172.31.16.152",
+    "172.31.16.153",
+    "172.31.16.154",
+    "172.31.16.155",
+    "172.31.16.156",
+    "172.31.16.157",
+    "172.31.16.158",
+    "172.31.16.159",
+    "172.31.16.160",
+    "172.31.16.161",
+];
 
 const symbol = "POLUSDT";
 const quantity = "20";
@@ -61,26 +68,34 @@ const orderCallback = (result) => {
 
 const main = async () => {
     try {
+        let options = {
+            keyIndex,
+        };
+
+        const exchangeClient = new BinanceClient(options);
         exchangeClient.initWsEventHandler({
             orders: orderUpdateHandler,
             positions: positionUpdateHandler,
         });
         exchangeClient.wsFuturesUserData();
-        exchangeClient.wsInitFuturesOrderConnection(orderCallback);
-        await sleep(2000);
 
-        let limit = 100;
-        let i = 0;
-        scheduleLoopTask(async () => {
-            if (i >= limit) {
-                process.exit();
-            }
-            i++;
+        for (let ip of ipArr) {
+            console.log(ip);
+            let options = {
+                keyIndex,
+                apiKey: configs.keyMap[account].apiKey,
+                apiSecret: configs.keyMap[account].apiSecret,
+                localAddress: ip,
+                intranet,
+            };
+            const orderClient = new BinanceClient(options);
+            orderClient.wsInitFuturesOrderConnection(orderCallback);
+            await sleep(2000);
             const clientOrderId = genClientOrderId();
             const start = Date.now();
             // 下单
             console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
-            const result = exchangeClient.wsPlaceOrder(
+            const result = orderClient.wsPlaceOrder(
                 symbol,
                 "BUY",
                 quantity,
@@ -92,14 +107,14 @@ const main = async () => {
             console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
             //console.log(result)
             // console.log(`NEW ${Date.now()-start}`)
-            await sleep(1000);
+            await sleep(500);
             // // 撤单
             console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
-            await exchangeClient.wsCancelOrder(symbol, clientOrderId);
+            await orderClient.wsCancelOrder(symbol, clientOrderId);
             console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
-            await sleep(1000);
-            process.exit();
-        });
+            await sleep(500);
+        }
+        process.exit();
     } catch (e) {
         console.error(e);
     }

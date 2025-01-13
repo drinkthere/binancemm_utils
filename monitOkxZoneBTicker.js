@@ -32,7 +32,7 @@ const subscribeMsg = async () => {
     console.log("Subscriber connected and waiting for messages...");
 
     for await (const [msg] of sock) {
-        const message = root.decode(msg);
+        //const message = root.decode(msg);
         const currentTimestamp = Date.now();
         lastUpdateTime = currentTimestamp;
     }
@@ -52,7 +52,7 @@ const checkTimeouts = () => {
 
             if (msg != "") {
                 log(msg);
-                sendAlert(msg);
+                //sendAlert(msg);
             } else {
                 log(`lastUpdateTime is ${lastUpdateTime}`);
             }

@@ -70,6 +70,10 @@ class BinanceClient {
         this.handlers = handlers;
     }
 
+    async ping() {
+        return await this.client.futuresPing();
+    }
+
     async getConState() {
         return await this.client.futuresConState();
     }
@@ -303,6 +307,25 @@ class BinanceClient {
 
     async cancelAllDeliveryOrders(symbol) {
         return await this.client.deliveryCancelAll(symbol);
+    }
+
+    async getFuturesOrderRateLimit() {
+        try {
+            return await this.client.futuresOrderRateLimit();
+        } catch (e) {
+            console.error("getMarginRatio", e);
+        }
+    }
+
+    async placeFuturesMarketOrder(side, symbol, quantity, params) {
+        side = side.toUpperCase();
+        return await this.client.futuresOrder(
+            side.toUpperCase(),
+            symbol,
+            quantity,
+            false,
+            params
+        );
     }
 
     async placeFuturesOrder(side, symbol, quantity, price, params) {
@@ -724,8 +747,7 @@ class BinanceClient {
         this.client.deliveryBookTickerStream(symbol, this.handlers["tickers"]);
     }
 
-    wsFuturesBookTicker() {
-        const symbol = "BTCUSDT";
+    wsFuturesBookTicker(symbol) {
         this.client.futuresBookTickerStream(symbol, this.handlers["tickers"]);
     }
 

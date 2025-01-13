@@ -2,7 +2,7 @@ const zmq = require("zeromq");
 const protobuf = require("protobufjs");
 
 //const ipc = "tcp://127.0.0.1:57003";
-const ipc = "tcp://127.0.0.1:56001";
+const ipc = "tcp://127.0.0.1:56101";
 
 const pbRoot = protobuf.loadSync("./proto/bnticker.proto");
 const root = pbRoot.lookupType("BinanceTicker");

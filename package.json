@@ -1,14 +1,32 @@
 {
+    "name": "binancemm_utils",
+    "version": "1.0.0",
+    "description": "```Shell sudo apt-get install nodejs npm -y ```",
+    "main": "cancel.js",
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/drinkthere/binancemm_utils.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+      "url": "https://github.com/drinkthere/binancemm_utils/issues"
+    },
+    "homepage": "https://github.com/drinkthere/binancemm_utils#readme",
     "dependencies": {
-        "async-lock": "^1.4.1",
-        "dotenv": "^16.4.5",
-        "minimist": "^1.2.8",
-        "mysql": "^2.18.1",
-        "node-binance-api": "file:node-binance-api",
-        "node-telegram-bot-api": "^0.65.1",
-        "pm2": "^5.3.1",
-        "protobufjs": "^7.3.2",
-        "uuid": "^9.0.1",
-        "zeromq": "^6.0.0-beta.20"
+      "async-lock": "^1.4.1",
+      "axios": "^1.7.8",
+      "dotenv": "^16.4.5",
+      "minimist": "^1.2.8",
+      "mysql": "^2.18.1",
+      "node-binance-api": "file:node-binance-api",
+      "node-telegram-bot-api": "^0.66.0",
+      "protobufjs": "^7.3.2",
+      "uuid": "^9.0.1",
+      "zeromq": "^6.0.0-beta.20"
     }
-}
+  }
+  

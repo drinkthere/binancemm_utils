@@ -1,6 +1,20 @@
 module.exports = {
     apps: [
         {
+            name: "hedge",
+            script: "/usr/bin/bash",
+            args: '-c "taskset -c 9 node hedge.js"',
+            out_file: "/data/will/binance_utils/hedge-out.log",
+            error_file: "/data/will/binance_utils/hedge-error.log",
+        },
+        {
+            name: "monit_private_ips",
+            script: "/usr/bin/bash",
+            args: '-c "taskset -c 7 node monitPrivateIPs.js"',
+            out_file: "/data/will/binance_utils/monit-private-ips-out.log",
+            error_file: "/data/will/binance_utils/monit-private-ips-error.log",
+        },
+        {
             name: "monit_okx_ticker",
             script: "/usr/bin/bash",
             args: '-c "taskset -c 7 node monitOkxTicker.js"',
@@ -35,6 +49,13 @@ module.exports = {
             args: '-c "taskset -c 7 node stat.js --account btech003"',
             out_file: "/data/will/bnmm/stat-btech003-out.log",
             error_file: "/data/will/bnmm/stat-btech003-error.log",
+        },
+        {
+            name: "stat_btech004",
+            script: "/usr/bin/bash",
+            args: '-c "taskset -c 7 node stat.js --account btech004"',
+            out_file: "/data/will/bnmm/stat-btech004-out.log",
+            error_file: "/data/will/bnmm/stat-btech004-error.log",
         },
         {
             name: "stat_elkdaphne1",
@@ -154,6 +175,13 @@ module.exports = {
             args: '-c "taskset -c 7 node stat.js --account trader17"',
             out_file: "/data/will/bnmm/stat-trader17-out.log",
             error_file: "/data/will/bnmm/stat-trader17-error.log",
+        },
+        {
+            name: "stat_trader18",
+            script: "/usr/bin/bash",
+            args: '-c "taskset -c 7 node stat.js --account trader18"',
+            out_file: "/data/will/bnmm/stat-trader18-out.log",
+            error_file: "/data/will/bnmm/stat-trader18-error.log",
         },
         {
             name: "stat_spot_fbg005",

@@ -19,7 +19,7 @@ const keyIndex = configs.keyIndexMap[account];
 
 let options = {
     keyIndex,
-    localAddress: "172.31.16.161", //configs.binanceLocalAddress[account],
+    localAddress: "172.31.16.148", //configs.binanceLocalAddress[account],
     intranet: true,
 };
 const exchangeClient = new BinanceClient(options);

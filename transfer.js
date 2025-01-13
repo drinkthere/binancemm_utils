@@ -69,9 +69,9 @@ const universalTransfer = async () => {
     // PORTFOLIO_MARGIN_MAIN 统一账户钱包转向现货钱包
     // MAIN_ISOLATED_MARGIN 现货钱包转向逐仓账户钱包
     // ISOLATED_MARGIN_MAIN 逐仓钱包转向现货账户钱包
-    const type = "MAIN_UMFUTURE";
+    const type = "UMFUTURE_MAIN";
     const asset = "USDT";
-    const amount = 500000;
+    const amount = 1000000;
     const result = await exchangeClient.universalTransfer(type, asset, amount);
     console.log(result);
 };

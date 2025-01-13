@@ -8,22 +8,30 @@ if (!fileExists(cfgFile)) {
 }
 const configs = require(cfgFile);
 
-const { account } = require("minimist")(process.argv.slice(2));
+let { account, intranet } = require("minimist")(process.argv.slice(2));
 if (account == null) {
     log("node getAccountInfo.js --account=xxx");
     process.exit();
 }
-
+intranet = intranet == "true" ? true : false;
 const keyIndex = configs.keyIndexMap[account];
 
 let options = {
     keyIndex,
     localAddress: configs.binanceLocalAddress[account],
+    intranet,
 };
 const exchangeClient = new BinanceClient(options);
 
 const main = async () => {
     try {
+        const rateLimit = await exchangeClient.getFuturesOrderRateLimit();
+        const limit1Min = rateLimit[0];
+        const limit10Sec = rateLimit[1];
+        console.log(
+            `1 min limit ${limit1Min.limit}, 10 sec limit ${limit10Sec.limit}`
+        );
+
         const balances = await exchangeClient.getFuturesBalances();
         let fbalanceLen = 0;
         console.log("Futures Balance:");
@@ -198,7 +206,11 @@ const main = async () => {
         console.log();
 
         const spotCommistionRate = await exchangeClient.getSpotCommissionRate();
-        console.log(spotCommistionRate);
+        console.log("spot comiistion rate", spotCommistionRate);
+
+        let marginRatio = await exchangeClient.getFuturesMarginRatio();
+        marginRatio = marginRatio ? marginRatio : 0;
+        console.log("margin ratio", marginRatio);
     } catch (e) {
         console.error(e);
     }

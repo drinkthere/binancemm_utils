@@ -39,9 +39,9 @@ const closePositions = async () => {
         let i = 0;
         if (positions != null && positions.length > 0) {
             for (let position of positions) {
-                if (["BTCUSDT", "ETHUSDT"].includes(position.symbol)) {
-                    continue;
-                }
+                // if (['BTC-USDT-SWAP', 'ETH-USDT-SWAP'].includes(position.symbol)) {
+                // 	continue;
+                // }
                 await exchangeClient.cancelAllFuturesOrders(position.symbol);
 
                 if (position.positionAmt == 0) {
@@ -89,6 +89,51 @@ const closePositions = async () => {
 };
 
 const main = async () => {
-    closePositions();
+    const symbolsMap = {
+        BTCUSDT: {
+            price: 98000,
+            qty: 0,
+        },
+        ETHUSDT: {
+            price: 3750,
+            qty: 0,
+        },
+    };
+    const symbols = Object.keys(symbolsMap);
+    let positions = await exchangeClient.getFuturesPositions();
+
+    positions = positions.filter((i) => symbols.includes(i.symbol));
+    for (let pos of positions) {
+        for (let symbol of symbols) {
+            if (pos.symbol == symbol) {
+                symbolsMap[symbol].qty = parseFloat(pos.positionAmt);
+            }
+        }
+    }
+
+    for (let symbol of symbols) {
+        const orderInfo = symbolsMap[symbol];
+        if (orderInfo.qty > 0) {
+            await exchangeClient.placeFuturesOrder(
+                "SELL",
+                symbol,
+                Math.abs(orderInfo.qty),
+                orderInfo.price,
+                {
+                    newClientOrderId: genClientOrderId(),
+                }
+            );
+        } else if (orderInfo.qty < 0) {
+            await exchangeClient.placeFuturesOrder(
+                "BUY",
+                symbol,
+                Math.abs(orderInfo.qty),
+                orderInfo.price,
+                {
+                    newClientOrderId: genClientOrderId(),
+                }
+            );
+        }
+    }
 };
 main();

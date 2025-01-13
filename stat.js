@@ -24,7 +24,9 @@ let options = {
     localAddress: configs.binanceLocalAddress[account],
 };
 const exchangeClient = new BinanceClient(options);
-
+let maxOrderNum = configs.maxOrderNum[account]
+    ? configs.maxOrderNum[account]
+    : 30;
 // 初始化同步锁
 const lock = new AsyncLock();
 
@@ -48,7 +50,7 @@ const orderUpdateHandler = async (orders) => {
                 const notional = order.lastFilledNotional;
                 const maker = order.isMaker;
 
-                const msg = `${account} ${clientOrderId} ${symbol} ${side} ${order.orderStatus} ${amount}@${price}`;
+                const msg = `${account} ${clientOrderId} ${symbol} ${side} ${order.orderStatus} ${amount}@${price} ${notional}`;
                 log(msg);
 
                 // 将订单写入数据库
@@ -93,7 +95,11 @@ const scheduleStatProfit = () => {
 
             let tradingBalance = balances.reduce((total, item) => {
                 let bal = 0;
-                if (item.asset == "USDT" || item.asset == "USDC") {
+                if (
+                    item.asset == "USDT" ||
+                    item.asset == "USDC" ||
+                    item.asset == "BFUSD"
+                ) {
                     bal =
                         parseFloat(item.balance) + parseFloat(item.crossUnPnl);
                 } else {
@@ -183,13 +189,21 @@ const scheduleStatProfit = () => {
                 noOrders++;
                 if (noOrders >= maxNoOrdersTimes) {
                     // 报警
-                    tgService.sendMsg(`${account} orders numbers warning`);
-                    noOrders = 0;
-                    maxNoOrdersTimes = 2 * maxNoOrdersTimes;
+                    if (!["trader18"].includes(account)) {
+                        tgService.sendMsg(`${account} orders numbers warning`);
+                        noOrders = 0;
+                        maxNoOrdersTimes = 2 * maxNoOrdersTimes;
+                    }
                 }
             }
 
             const ordersNum = buyOrdersNum + sellOrdersNum;
+            if (ordersNum > maxOrderNum) {
+                // 订单数太多，报警
+                tgService.sendMsg(
+                    `binance ${account} too many orders ${ordersNum}`
+                );
+            }
             console.log(
                 `The num of open orders is ${ordersNum}(B:${buyOrdersNum}|S:${sellOrdersNum})`
             );

@@ -19,13 +19,15 @@ if (account == null) {
 intranet = intranet == "true" ? true : false;
 const keyIndex = configs.keyIndexMap[account];
 
-let options = {
-    keyIndex,
-    localAddress: configs.binanceLocalAddress[account],
-    intranet,
-};
-const exchangeClient = new BinanceClient(options);
-
+// const ipArr = [
+//     '172.31.16.148', '172.31.16.149', '172.31.16.150', '172.31.16.151', '172.31.16.152', '172.31.16.153', '172.31.16.154', '172.31.16.155', '172.31.16.156', '172.31.16.157',
+//     '172.31.16.158', '172.31.16.159', '172.31.16.160', '172.31.16.161']
+const ipArr = [
+    "172.31.16.158",
+    "172.31.16.159",
+    "172.31.16.160",
+    "172.31.16.161",
+];
 const orderUpdateHandler = async (orders) => {
     for (let order of orders) {
         // 使用clientOrderId作为锁的key，避免并发引起的更新错误
@@ -52,17 +54,31 @@ const genClientOrderId = () => {
 };
 
 const main = async () => {
+    let options = {
+        keyIndex,
+        localAddress: configs.binanceLocalAddress[account],
+        intranet,
+    };
+    const exchangeClient = new BinanceClient(options);
     exchangeClient.initWsEventHandler({
         orders: orderUpdateHandler,
         positions: positionUpdateHandler,
     });
     exchangeClient.wsFuturesUserData();
-    scheduleLoopTask(async () => {
+
+    for (let ip of ipArr) {
+        console.log(ip);
+        let options = {
+            keyIndex,
+            localAddress: ip,
+            intranet,
+        };
+        const orderClient = new BinanceClient(options);
         const clientOrderId = genClientOrderId();
         const start = Date.now();
         // 下单
         console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
-        const result = await exchangeClient.placeFuturesOrder(
+        const result = await orderClient.placeFuturesOrder(
             "BUY",
             symbol,
             20,
@@ -72,15 +88,15 @@ const main = async () => {
             }
         );
         console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
-        console.log(result);
+        //console.log(result);
         // console.log(`NEW ${Date.now()-start}`)
-        await sleep(2000);
+        await sleep(500);
         // 撤单
         console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
-        await exchangeClient.cancelFuturesOrder(symbol, clientOrderId);
+        await orderClient.cancelFuturesOrder(symbol, clientOrderId);
         console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
-        await sleep(2000);
-        process.exit();
-    });
+        await sleep(500);
+    }
+    process.exit();
 };
 main();

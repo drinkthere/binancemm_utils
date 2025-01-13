@@ -11,284 +11,303 @@ if (!fileExists(cfgFile)) {
     log(`config file ${cfgFile} does not exits`);
     process.exit();
 }
-const configs = require(cfgFile);
 
-const OkxClient = require("./clients/okx");
 const BinanceClient = require("./clients/binance");
-const keyIndex = 0;
-const orderAmount = 100;
-// 加载.env文件
-const dotenv = require("dotenv");
-dotenv.config();
-const apiKeyArr = process.env.OKX_STAT_API_KEY.split(",");
-const apiSecretArr = process.env.OKX_STAT_API_SECRET.split(",");
-const apiPasswordArr = process.env.OKX_STAT_API_PASSWORD.split(",");
-
-let options = {
-    API_KEY: apiKeyArr[keyIndex],
-    API_SECRET: apiSecretArr[keyIndex],
-    API_PASSWORD: apiPasswordArr[keyIndex],
-};
-const okxClient = new OkxClient(options);
 const binanceClient = new BinanceClient({
-    APIKEY: process.env.BINANCE_API_KEY,
-    APISECRET: process.env.BINANCE_API_SECRET,
+    APIKEY: "",
+    APISECRET: "",
 });
-let okxFuturesConfigMap = {};
-let bnFuturesAssetMap = {};
-let referInstrumentsMap = {};
+let trader1AltConfig = require("../bnmm/config/config-trader1-alt.json");
+let trader2AltConfig = require("../bnmm/config/config-trader2-alt.json");
+let trader3AltConfig = require("../bnmm/config/config-trader3-alt.json");
+let trader14AltConfig = require("../bnmm/config/config-trader14-alt.json");
+let trader15AltConfig = require("../bnmm/config/config-trader15-alt.json");
+let trader16AltConfig = require("../bnmm/config/config-trader16-alt.json");
+let trader17AltConfig = require("../bnmm/config/config-trader17-alt.json");
+const { stringify } = require("querystring");
+let binanceFuturesTickersMap = {};
+let binanceFuturesConfigMap = {};
 const directory = "./mm-config";
-const accountArr = Object.keys(configs.keyIndexMap);
-
-const firstOrderMarginArr = [
-    0.00005, 0.00005, 0.00005, 0.00006, 0.00007, 0.00008, 0.0004, 0.0004,
-    0.0004, 0.00005, 0.00005, 0.00005, 0.00005, 0.00005,
-];
-
-const firstOrderRangePercentArr = [
-    0.00005, 0.00005, 0.00005, 0.00006, 0.00007, 0.00008, 0.0002, 0.0002,
-    0.0002, 0.00005, 0.00005, 0.00005, 0.00005, 0.00005,
-];
-
-const gapSizePercentArr = [
-    0.00025, 0.00025, 0.00025, 0.0003, 0.00035, 0.0004, 0.0015, 0.0015, 0.0015,
-    0.00025, 0.00025, 0.00025, 0.00025, 0.00025,
-];
-
-const forgivePercentArr = [
-    1, 1, 0.99995, 0.99995, 0.99995, 0.99995, 0.9995, 0.99925, 0.999, 1, 1,
-    0.99995, 1, 1,
-];
-
-const tickerShiftArr = [
-    0.0000025, 0.0000025, 0.0000025, 0.0000025, 0.0000025, 0.0000025, 0.000005,
-    0.000005, 0.000005, 0.0000025, 0.0000025, 0.0000025, 0.0000025, 0.0000025,
-];
-
-const volatilityDArr = [3, 2, 2, 3, 3.5, 4, 1.8, 1.6, 1.4, 3, 2, 2, 3, 2];
-
-const volatilityGArr = [
-    60, 120, 240, 240, 240, 240, 300, 360, 420, 120, 180, 240, 120, 240,
-];
-
-const minimumTickershiftArr = [
-    100, 100, 100, 50, 50, 50, 50, 50, 50, 100, 75, 50, 100, 50,
-];
-
-const maxPositionArr = [
-    1000, 1000, 1000, 100, 1000, 1000, 1000, 1000, 1000, 1000, 2000, 2000, 2000,
-    1000, 1000, 2000, 2000, 100,
-];
-
-const maxPositionMap = {
-    CORE: 500,
-    OTHER: 500,
+const uPerOrderMap = {
+    "config-trader1-alt.json": 1000,
+    "config-trader2-alt.json": 1000,
+    "config-trader3-alt.json": 1000,
+    "config-trader14-alt.json": 1000,
+    "config-trader15-alt.json": 1000,
+    "config-trader16-alt.json": 1000,
+    "config-trader17-alt.json": 1000,
+};
+const firstOrderMargin = 0.0005; // 第一单距离最大（小forBid）价格的距离
+const firstOrderRangePercent = 0.0005;
+const gapSizePercent = 0.0005;
+const forgivePercentMap = {
+    "config-trader1-alt.json": 0.9988,
+    "config-trader2-alt.json": 0.9989,
+    "config-trader3-alt.json": 0.999,
+    "config-trader14-alt.json": 0.9991,
+    "config-trader15-alt.json": 0.9992,
+    "config-trader16-alt.json": 0.9993,
+    "config-trader17-alt.json": 0.9994,
 };
 
-const breakEvenXArr = [
-    0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.01, 0.01, 0.01, 0.003, 0.003,
-    0.003, 0.003, 0.003,
-];
-
-let validInstIDs = [
-    "BTC-USDT-SWAP",
-    "ETH-USDT-SWAP",
-    "MATIC-USDT-SWAP",
-    "XRP-USDT-SWAP",
-    "SOL-USDT-SWAP",
-    "DOGE-USDT-SWAP",
-    "1INCH-USDT-SWAP",
-    "AAVE-USDT-SWAP",
-    "ACH-USDT-SWAP",
-    "ADA-USDT-SWAP",
-    "ARB-USDT-SWAP",
-    "ATOM-USDT-SWAP",
-    "AVAX-USDT-SWAP",
-    "BNB-USDT-SWAP",
-    "CRV-USDT-SWAP",
-    "DOT-USDT-SWAP",
-    "DYDX-USDT-SWAP",
-    "FTM-USDT-SWAP",
-    "LINK-USDT-SWAP",
-    "LTC-USDT-SWAP",
-    "OP-USDT-SWAP",
-    "UNI-USDT-SWAP",
-    "NEAR-USDT-SWAP",
-    "WIF-USDT-SWAP",
-    "BCH-USDT-SWAP",
-    "WLD-USDT-SWAP",
-    "FIL-USDT-SWAP",
-    "ORDI-USDT-SWAP",
-    "ETC-USDT-SWAP",
-    "RNDR-USDT-SWAP",
-    "APT-USDT-SWAP",
-    "TIA-USDT-SWAP",
-];
-
-const getOkxAssetsSet = async (instType) => {
-    const insts = await okxClient.getInstruments(instType);
-    let assetsSet = new Set();
-    for (let inst of insts) {
-        var asset;
-        if (instType == "SWAP") {
-            asset = inst.ctValCcy;
-            okxFuturesConfigMap[inst.instID] = inst;
-        } else {
-            asset = inst.baseCcy;
-        }
-        assetsSet.add(asset);
-    }
-    return assetsSet;
+const tickerShiftMap = {
+    "config-trader1-alt.json": 0.000025,
+    "config-trader2-alt.json": 0.000025,
+    "config-trader3-alt.json": 0.000025,
+    "config-trader14-alt.json": 0.000025,
+    "config-trader15-alt.json": 0.00005,
+    "config-trader16-alt.json": 0.00005,
+    "config-trader17-alt.json": 0.00005,
 };
-
-const getBinanceAssetsSet = async (instType) => {
-    var result;
-    let assetSet = new Set();
-    if (instType == "FUTURES") {
-        // 获取binance支持的futures
-        result = await binanceClient.futuresInstruments();
-    } else if (instType == "SPOT") {
-        result = await binanceClient.spotInstruments();
-    }
-
-    for (let item of result) {
-        assetSet.add(item.baseAsset);
-    }
-    return assetSet;
-};
-
-const formatBinanceFuturesAssets = (bnFuturesAssets) => {
-    let assetSet = new Set();
-    for (let asset of bnFuturesAssets) {
-        const formattedAsset = asset.replace("1000", "");
-        bnFuturesAssetMap[formattedAsset] = asset;
-        assetSet.add(formattedAsset);
-    }
-    return assetSet;
-};
-
-function calculateOrderSize(
-    price,
-    decimals,
-    minSize,
-    contractValue,
-    contractTicker
-) {
-    // 格式化价格，保留小数位数
-    const formattedPrice = parseFloat(price.toFixed(decimals));
-
-    // 计算下单张数
-    let targetOrderSize = orderAmount / (formattedPrice * contractValue);
-
-    // 确保下单张数为最小变动的整数倍
-    targetOrderSize =
-        Math.round(targetOrderSize / contractTicker) * contractTicker;
-
-    // 确保下单张数不低于最小合约下单张数
-    targetOrderSize = Math.max(targetOrderSize, minSize);
-
-    return targetOrderSize;
-}
-
+const maxOrderNum = 3;
+const farOrderNum = 5; // 比maxOrderNum大一点就可以，避免浪费api
+const volatilityE = 0.75;
+const volatilityD = 4;
+const volatilityG = 2000;
+const minimumTickerShiftMulti = 2; // 这里用的是倍数，不是原始配置文件中的绝对值，因为contractNum是计算出来的，所以用倍数比较好，相当于 2 * contractNumber
+const maximumTickerShiftMulti = 8; // 这里用的是倍数，不是原始配置文件中的绝对值，因为contractNum是计算出来的，所以用倍数比较好，相当于 4 * contractNumber
+const positionReduceFactorMulti = 2; // 这里用的是倍数，不是原始配置文件中的绝对值，因为contractNum是计算出来的，所以用倍数比较好，相当于 2 * contractNumber
+const positionOffset = 0;
+const maxContractNumMulti = 25; // 这里用的是倍数，不是原始配置文件中的绝对值，因为contractNum是计算出来的，所以用倍数比较好，相当于 100 * contractNumber
+const breakEvenX = 0.03;
+const buyRatioOffset = 0;
+const sellRatioOffset = 0.0001;
 const main = async () => {
     try {
         deleteFilesInDirectory(directory);
-
-        // 获取okx 支持的futures
-        const okxFuturesAssets = await getOkxAssetsSet("SWAP");
-        console.log(okxFuturesAssets);
-        process.exit();
-        // 获取okx futures 价格
-        const tickerMap = await okxClient.getFuturesTickers();
-
-        // 获取okx 支持的spot
-        const okxSpotAssets = await getOkxAssetsSet("SPOT");
-
-        // 获取binance支持的futures
-        let bnFuturesAssets = await getBinanceAssetsSet("FUTURES");
-        bnFuturesAssets = formatBinanceFuturesAssets(bnFuturesAssets);
-
-        // 获取binance支持的spot
-        const bnSpotAssets = await getBinanceAssetsSet("SPOT");
-
-        // 以okx为主，生成配置信息
-        for (let asset of okxFuturesAssets) {
-            let referInstruments = [];
-            if (okxSpotAssets.has(asset)) {
-                referInstruments.push({
-                    exchange: "Okx",
-                    instType: "SPOT",
-                    instID: `${asset}-USDT`,
-                });
-            }
-            if (bnFuturesAssets.has(asset)) {
-                referInstruments.push({
-                    exchange: "Binance",
-                    instType: "FUTURES",
-                    instID: `${bnFuturesAssetMap[asset]}USDT`,
-                });
-            }
-            if (bnSpotAssets.has(asset)) {
-                referInstruments.push({
-                    exchange: "Binance",
-                    instType: "SPOT",
-                    instID: `${asset}USDT`,
-                });
-            }
-            referInstrumentsMap[`${asset}-USDT-SWAP`] = referInstruments;
-        }
-
-        for (let i = 0; i < accountArr.length; i++) {
-            let configs = {};
-            okxFuturesAssets.forEach((asset) => {
-                let instID = `${asset}-USDT-SWAP`;
-                if (!validInstIDs.includes(instID)) {
-                    return;
-                }
-                let instCfg = okxFuturesConfigMap[instID];
-                const ticker = tickerMap[instID];
-                const price =
-                    (parseFloat(ticker["bestBid"]) +
-                        parseFloat(ticker["bestAsk"])) /
-                    2;
-                const priceDecimal = getDecimals(instCfg.tickSz);
-                const qtyDecimal = getDecimals(instCfg.minSz);
-                const orderSize = calculateOrderSize(
-                    price,
-                    priceDecimal,
-                    parseFloat(instCfg["minSz"]),
-                    parseFloat(instCfg["ctVal"]),
-                    parseFloat(instCfg["lotSz"])
-                );
-                configs[instID] = {
-                    ContractNum: orderSize,
-                    MaxContractNum: maxPositionArr[i] * orderSize,
-                    VolPerCont: parseFloat(instCfg.ctVal),
-                    BaseAsset: asset,
-                    Leverage: 10,
-                    EffectiveNum: orderSize,
-                    Precision: [priceDecimal, qtyDecimal],
-                    FirstOrderMargin: firstOrderMarginArr[i],
-                    FirstOrderRangePercent: firstOrderRangePercentArr[i],
-                    GapSizePercent: gapSizePercentArr[i],
-                    ForgivePercent: forgivePercentArr[i],
-                    TickerShift: tickerShiftArr[i],
-                    MaxOrderNum: 3,
-                    FarOrderNum: 5,
-                    VolatilityE: 0.75,
-                    VolatilityD: volatilityDArr[i],
-                    VolatilityG: volatilityGArr[i],
-                    TickerShiftStartNum: minimumTickershiftArr[i],
-                    BreakEvenX: breakEvenXArr[i],
-                };
-            });
-            const formattedJSON = JSON.stringify(configs, null, 4);
-            const filePath = path.join(directory, `${accountArr[i]}.json`);
-            writeStringToFile(filePath, formattedJSON);
-            // console.log(JSON.stringify(Object.keys(configs), null, 4));
-        }
+        await genBinanceFuturesTickersMap();
+        await genBinanceFuturesMap();
+        // for (let asset of Object.keys(binanceFuturesConfigMap)) {
+        //     if (['OP', 'SOL', 'SUSHI', 'AVAX', 'CRV'].includes(asset)) {
+        //         console.log(asset)
+        //         // for(let filter of binanceFuturesConfigMap[asset].filters) {
+        //         //     if (filter.filterType == 'PRICE_FILTER' || filter.filterType == 'LOT_SIZE') {
+        //         //         console.log(filter)
+        //         //     }
+        //         // }
+        //     }
+        // }
+        // process.exit();
+        genConfigFile("config-trader1-alt.json", trader1AltConfig);
+        genConfigFile("config-trader2-alt.json", trader2AltConfig);
+        genConfigFile("config-trader3-alt.json", trader3AltConfig);
+        genConfigFile("config-trader14-alt.json", trader14AltConfig);
+        genConfigFile("config-trader15-alt.json", trader15AltConfig);
+        genConfigFile("config-trader16-alt.json", trader16AltConfig);
+        genConfigFile("config-trader17-alt.json", trader17AltConfig);
     } catch (e) {
         console.error(e);
     }
 };
+
+const genBinanceFuturesTickersMap = async () => {
+    // binanceFuturesTickersMap = await binanceClient.getFuturesTickers();
+
+    binanceSpotTickersMap = await binanceClient.getSpotTickers();
+    for (let key of Object.keys(binanceSpotTickersMap)) {
+        if (key.startsWith("10")) {
+            console.log(`"${key}",`);
+        }
+    }
+    process.exit();
+};
+
+const genBinanceFuturesMap = async () => {
+    const result = await binanceClient.getFuturesExchangeInfo();
+    const insts = result.symbols;
+    // [Object: null prototype] {
+    //     symbol: 'BTCUSDT',
+    //     pair: 'BTCUSDT',
+    //     contractType: 'PERPETUAL',
+    //     deliveryDate: 4133404800000,
+    //     onboardDate: 1569398400000,
+    //     status: 'TRADING',
+    //     maintMarginPercent: '2.5000',
+    //     requiredMarginPercent: '5.0000',
+    //     baseAsset: 'BTC',
+    //     quoteAsset: 'USDT',
+    //     marginAsset: 'USDT',
+    //     pricePrecision: 2,
+    //     quantityPrecision: 3,
+    //     baseAssetPrecision: 8,
+    //     quotePrecision: 8,
+    //     underlyingType: 'COIN',
+    //     underlyingSubType: [ 'PoW' ],
+    //     triggerProtect: '0.0500',
+    //     liquidationFee: '0.012500',
+    //     marketTakeBound: '0.05',
+    //     maxMoveOrderLimit: 10000,
+    //     filters: [
+    //       [Object: null prototype] {
+    //         maxPrice: '4529764',
+    //         filterType: 'PRICE_FILTER',
+    //         minPrice: '556.80',
+    //         tickSize: '0.10'
+    //       },
+    //       [Object: null prototype] {
+    //         maxQty: '1000',
+    //         stepSize: '0.001',
+    //         filterType: 'LOT_SIZE',
+    //         minQty: '0.001'
+    //       },
+    //       [Object: null prototype] {
+    //         stepSize: '0.001',
+    //         filterType: 'MARKET_LOT_SIZE',
+    //         maxQty: '120',
+    //         minQty: '0.001'
+    //       },
+    //       [Object: null prototype] {
+    //         filterType: 'MAX_NUM_ORDERS',
+    //         limit: 200
+    //       },
+    //       [Object: null prototype] {
+    //         filterType: 'MAX_NUM_ALGO_ORDERS',
+    //         limit: 10
+    //       },
+    //       [Object: null prototype] {
+    //         notional: '100',
+    //         filterType: 'MIN_NOTIONAL'
+    //       },
+    //       [Object: null prototype] {
+    //         multiplierDown: '0.9500',
+    //         multiplierDecimal: '4',
+    //         multiplierUp: '1.0500',
+    //         filterType: 'PERCENT_PRICE'
+    //       }
+    //     ],
+    //     orderTypes: [
+    //       'LIMIT',
+    //       'MARKET',
+    //       'STOP',
+    //       'STOP_MARKET',
+    //       'TAKE_PROFIT',
+    //       'TAKE_PROFIT_MARKET',
+    //       'TRAILING_STOP_MARKET'
+    //     ],
+    //     timeInForce: [ 'GTC', 'IOC', 'FOK', 'GTX', 'GTD' ]
+    //   }
+    for (let inst of insts) {
+        const asset = inst.baseAsset;
+        binanceFuturesConfigMap[asset] = inst;
+    }
+};
+
+const genConfigFile = (filename, configs) => {
+    const binanceInsts = configs["InstIDs"];
+    const oldInstConfigs = configs["InstIDConfigs"];
+    let instConfigs = {};
+    for (let inst of binanceInsts) {
+        const oldInstCfg = oldInstConfigs[inst];
+        const asset = inst.slice(0, -4);
+        const instInfo = binanceFuturesConfigMap[asset];
+        const tickerInfo = binanceFuturesTickersMap[inst];
+        const contractNum = calculateContractNum(
+            uPerOrderMap[filename],
+            instInfo,
+            tickerInfo
+        );
+        const priceTickerSize = getInstPriceTickSize(instInfo);
+        const qtyTickerSize = getInstQtyTickSize(instInfo);
+        instConfigs[inst] = {
+            ContractNum: contractNum,
+            VolPerCont: 1,
+            BaseAsset: asset,
+            Leverage: 10,
+            EffectiveNum: parseFloat(qtyTickerSize),
+            Precision: oldInstCfg["Precision"],
+            FirstOrderMargin: firstOrderMargin,
+            FirstOrderRangePercent: firstOrderRangePercent,
+            GapSizePercent: gapSizePercent,
+            ForgivePercent: forgivePercentMap[filename],
+            TickerShift: tickerShiftMap[filename],
+            MaxOrderNum: maxOrderNum,
+            FarOrderNum: farOrderNum,
+            VolatilityE: volatilityE,
+            VolatilityD: volatilityD,
+            VolatilityG: volatilityG,
+            MinimumTickerShift: minimumTickerShiftMulti * contractNum,
+            MaximumTickerShift: maximumTickerShiftMulti * contractNum,
+            PositionReduceFactor: positionReduceFactorMulti * contractNum,
+            PositionOffset: positionOffset,
+            MaxContractNum: maxContractNumMulti * contractNum,
+            BreakEvenX: breakEvenX,
+            BuyRatioOffset: buyRatioOffset,
+            SellRatioOffset: sellRatioOffset,
+        };
+    }
+    configs["InstIDConfigs"] = instConfigs;
+
+    let formattedJSON = JSON.stringify(configs, null, 4);
+    const filePath = path.join(directory, filename);
+    writeStringToFile(filePath, formattedJSON);
+    console.log(`config file ${filename} generated in ${directory}`);
+};
+
+function calculateContractNum(uPerOrder, instInfo, tickerInfo) {
+    const price = tickerInfo.askPrice; // ask价格高一些，用高的价格计算
+    let qty = uPerOrder / price;
+
+    let stepSizeStr = "0";
+    for (let filter of instInfo.filters) {
+        if (filter.filterType == "LOT_SIZE") {
+            stepSizeStr = filter.stepSize;
+        }
+    }
+    if (stepSizeStr == "0") {
+        console.error(`${instInfo.symbol} step size error`);
+        console.error(instInfo);
+        process.exit();
+    }
+
+    const stepSizeDecimalPlaces = stepSizeStr.includes(".")
+        ? stepSizeStr.split(".")[1].length
+        : 0;
+
+    // 计算调整因子
+    const factor = Math.pow(10, stepSizeDecimalPlaces);
+
+    // 四舍五入 qty 到指定的小数位数
+    qty = Math.round(qty * factor) / factor;
+
+    // 四舍五入到 minSize 的整数倍
+    const stepSize = parseFloat(stepSizeStr);
+    qty = Math.floor(qty / stepSize) * stepSize; // 向下取整到最近的 stepSize 的整数倍
+
+    // 确保 qty 至少为 minSize
+    qty = Math.max(qty, stepSize);
+    decimals = getDecimals(stepSizeStr);
+    return parseFloat(qty.toFixed(decimals));
+    // // 如果 qty 是整数，返回整数
+    // return qty % 1 === 0 ? Math.floor(qty) : qty;
+}
+
+function getInstPriceTickSize(instInfo) {
+    let priceTickSize = -1;
+    for (let filter of instInfo.filters) {
+        if (filter.filterType == "PRICE_FILTER") {
+            priceTickSize = filter.tickSize;
+        }
+    }
+    if (priceTickSize == -1) {
+        console.error(`${instInfo.symbol} price ticker size error`);
+        console.error(instInfo);
+        process.exit();
+    }
+    return priceTickSize;
+}
+
+function getInstQtyTickSize(instInfo) {
+    let qtyTickSize = -1;
+    for (let filter of instInfo.filters) {
+        if (filter.filterType == "LOT_SIZE") {
+            qtyTickSize = filter.minQty;
+        }
+    }
+    if (qtyTickSize == -1) {
+        console.error(`${instInfo.symbol} qty ticker size error`);
+        console.error(instInfo);
+        process.exit();
+    }
+    return qtyTickSize;
+}
 main();
