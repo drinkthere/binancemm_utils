@@ -24,15 +24,19 @@ const exchangeClient = new BinanceClient(options);
 
 const main = async () => {
     try {
+        const gResp = await exchangeClient.getBNBBurn();
+        console.log(gResp);
+
         // enable BNB to pay for interest
-        const eResult = await exchangeClient.enableBNBBurn("true", "true");
-        console.log(eResult);
+        // const eResult = await exchangeClient.enableBNBBurn("true", "true");
+        // console.log(eResult);
+
         // // test borrow
-        // const bResult = await exchangeClient.marginBorrow('ETH', 0.00000001)
+        // const bResult = await exchangeClient.marginBorrow('ETH', 0.005)
         // console.log(bResult)
 
-        // // test repay
-        // const rResult = await exchangeClient.marginRepay('ETH', 0.00000001)
+        // test repay
+        // const rResult = await exchangeClient.marginRepay('ETH', 0.07)
         // console.log(rResult)
     } catch (e) {
         console.error(e);

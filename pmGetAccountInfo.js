@@ -28,7 +28,7 @@ const main = async () => {
         console.log("Portfolio Margin Account Balance:");
         if (balances && balances.length > 0) {
             for (let bal of balances) {
-                if (bal.balance != 0) {
+                if (bal.totalWalletBalance != 0) {
                     noFb = false;
                     console.log(bal.asset, bal.totalWalletBalance);
                 }

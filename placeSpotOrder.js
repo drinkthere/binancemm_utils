@@ -60,11 +60,11 @@ const main = async () => {
             const clientOrderId = genClientOrderId();
             const result = await exchangeClient.placeSpotOrder(
                 "BUY",
-                "ETHUSDT",
-                0.5,
-                "3027.7",
+                "BNBUSDT",
+                0.1,
+                "550",
                 {
-                    type: "MARKET",
+                    type: "LIMIT",
                     newClientOrderId: clientOrderId,
                 }
             );

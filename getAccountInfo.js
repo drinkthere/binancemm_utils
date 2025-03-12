@@ -25,12 +25,14 @@ const exchangeClient = new BinanceClient(options);
 
 const main = async () => {
     try {
-        const rateLimit = await exchangeClient.getFuturesOrderRateLimit();
-        const limit1Min = rateLimit[0];
-        const limit10Sec = rateLimit[1];
-        console.log(
-            `1 min limit ${limit1Min.limit}, 10 sec limit ${limit10Sec.limit}`
-        );
+        // process.exit();
+
+        // const rateLimit = await exchangeClient.getFuturesOrderRateLimit();
+        // const limit1Min = rateLimit[0];
+        // const limit10Sec = rateLimit[1];
+        // console.log(
+        //     `1 min limit ${limit1Min.limit}, 10 sec limit ${limit10Sec.limit}`
+        // );
 
         const balances = await exchangeClient.getFuturesBalances();
         let fbalanceLen = 0;
@@ -73,7 +75,7 @@ const main = async () => {
         console.log("Spot Balance:");
         if (sbalances && sbalances.length > 0) {
             for (let bal of sbalances) {
-                if (bal.free != 0) {
+                if (bal.free != 0 || bal.locked != 0) {
                     console.log(bal.asset, bal.free);
                 }
             }
@@ -142,6 +144,10 @@ const main = async () => {
         );
         console.log();
 
+        let marginRatio = await exchangeClient.getFuturesMarginRatio();
+        marginRatio = marginRatio ? marginRatio : 0;
+        console.log("margin ratio", marginRatio);
+
         console.log("Current Delivery Postions:");
         const dPositions = await exchangeClient.getDeliveryPositions();
         let dPositionLen = 0;
@@ -207,10 +213,52 @@ const main = async () => {
 
         const spotCommistionRate = await exchangeClient.getSpotCommissionRate();
         console.log("spot comiistion rate", spotCommistionRate);
+        console.log();
 
-        let marginRatio = await exchangeClient.getFuturesMarginRatio();
-        marginRatio = marginRatio ? marginRatio : 0;
-        console.log("margin ratio", marginRatio);
+        const mgAccount = await exchangeClient.getMarginAccount();
+        console.log("Margin Level:", mgAccount.marginLevel);
+        console.log();
+
+        console.log("Margin Balance:");
+        if (mgAccount.userAssets && mgAccount.userAssets.length > 0) {
+            for (let asset of mgAccount.userAssets) {
+                if (
+                    asset.free != "0" ||
+                    asset.locked != "0" ||
+                    asset.borrowed != "0"
+                ) {
+                    console.log(
+                        asset.asset,
+                        asset.free,
+                        asset.locked,
+                        asset.borrowed,
+                        asset.netAsset,
+                        asset.interest
+                    );
+                }
+            }
+        } else {
+            console.log(`No balance`);
+        }
+        console.log();
+
+        console.log("Margin Open Orders:");
+        const mgOpenOrders = await exchangeClient.getMarginOpenOrders();
+        if (mgOpenOrders && mgOpenOrders.length > 0) {
+            for (let order of mgOpenOrders) {
+                console.log(
+                    order.symbol,
+                    order.clientOrderId,
+                    order.side,
+                    order.price,
+                    order.origQty
+                );
+            }
+            console.log("orders length:", mgOpenOrders.length);
+        } else {
+            console.log("No orders");
+        }
+        console.log();
     } catch (e) {
         console.error(e);
     }

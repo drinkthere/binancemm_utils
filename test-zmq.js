@@ -9,7 +9,7 @@ const { hasUncaughtExceptionCaptureCallback } = require("process");
 const maxNotUpdateTime = 10000; // 10s
 const maxP99DelayTime = 50; // 35
 const ipcMap = {
-    tickerIPC: "tcp://127.0.0.1:57002",
+    tickerIPC: "tcp://127.0.0.1:56001",
     //    orderBookIPC: "tcp://192.168.14.34:56002",
 };
 

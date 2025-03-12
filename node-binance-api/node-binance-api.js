@@ -1,3 +1,5 @@
+const { Console } = require("console");
+
 /* ============================================================
  * node-binance-api
  * https://github.com/jaggedsoft/node-binance-api
@@ -106,7 +108,7 @@ let api = function Binance(options = {}) {
         if (typeof opt === "string") {
             // Pass json config filename
             Binance.options = JSON.parse(file.readFileSync(opt));
-        } else Binance.options = opt;
+        } else Binance.options = { ...opt };
         if (typeof Binance.options.recvWindow === "undefined")
             Binance.options.recvWindow = default_options.recvWindow;
         if (typeof Binance.options.useServerTime === "undefined")
@@ -127,6 +129,27 @@ let api = function Binance(options = {}) {
             Binance.options.localAddress = default_options.localAddress;
         if (typeof Binance.options.family === "undefined")
             Binance.options.family = default_options.family;
+        if (
+            typeof Binance.options.wsEndpoint === "undefined" &&
+            typeof opt.wsEndpoint != "undefined"
+        ) {
+            Binance.options.wsEndpoint = opt.wsEndpoint;
+        }
+
+        if (
+            typeof Binance.options.APIKEY === "undefined" &&
+            typeof opt.APIKEY != "undefined"
+        ) {
+            Binance.options.APIKEY = opt.APIKEY;
+        }
+
+        if (
+            typeof Binance.options.APISECRET === "undefined" &&
+            typeof opt.APISECRET != "undefined"
+        ) {
+            Binance.options.APISECRET = opt.APISECRET;
+        }
+
         if (typeof Binance.options.urls !== "undefined") {
             const { urls } = Binance.options;
             if (typeof urls.base === "string") base = urls.base;
@@ -152,7 +175,7 @@ let api = function Binance(options = {}) {
             if (typeof urls.dstreamSingleTest === "string")
                 dstreamSingleTest = urls.dstreamSingleTest;
         }
-
+        // console.log(Binance.options)
         if (Binance.options.deliveryColo) {
             dstream = "wss://dstream-mm.binance.com/stream?streams=";
             dstreamSingle = "wss://dstream-mm.binance.com/ws/";
@@ -579,10 +602,12 @@ let api = function Binance(options = {}) {
                     'stopPrice: Must set "type" to one of the following: STOP_LOSS, STOP_LOSS_LIMIT, TAKE_PROFIT, TAKE_PROFIT_LIMIT'
                 );
         }
-        signedRequest(
+
+        return signedRequest(
             sapi + endpoint,
             opt,
             function (error, response) {
+                //console.log(error, response)
                 if (!response) {
                     if (callback) callback(error, response);
                     else Binance.options.log("Order() error:", error);
@@ -597,18 +622,18 @@ let api = function Binance(options = {}) {
                     );
                 }
                 if (callback) callback(error, response);
-                else
-                    Binance.options.log(
-                        side +
-                            "(" +
-                            symbol +
-                            "," +
-                            quantity +
-                            "," +
-                            price +
-                            ") ",
-                        response
-                    );
+                // else
+                //     Binance.options.log(
+                //         side +
+                //             "(" +
+                //             symbol +
+                //             "," +
+                //             quantity +
+                //             "," +
+                //             price +
+                //             ") ",
+                //         response
+                //     );
             },
             "POST"
         );
@@ -684,6 +709,43 @@ let api = function Binance(options = {}) {
             method: "POST",
         });
     };
+
+    // Margin internal functions
+    const pmMgOrder = async (
+        side,
+        symbol,
+        quantity,
+        price = false,
+        params = {}
+    ) => {
+        params.symbol = symbol;
+        params.side = side;
+        if (quantity) params.quantity = quantity;
+        // if in the binance futures setting Hedged mode is active, positionSide parameter is mandatory
+        if (
+            typeof params.positionSide === "undefined" &&
+            Binance.options.hedgeMode
+        ) {
+            params.positionSide = side === "BUY" ? "LONG" : "SHORT";
+        }
+        // LIMIT STOP MARKET STOP_MARKET TAKE_PROFIT TAKE_PROFIT_MARKET
+        // reduceOnly stopPrice
+        if (price) {
+            params.price = price;
+            if (typeof params.type === "undefined") params.type = "LIMIT";
+        } else {
+            if (typeof params.type === "undefined") params.type = "MARKET";
+        }
+        if (!params.timeInForce && params.type.includes("LIMIT")) {
+            params.timeInForce = "GTX"; // Post only by default. Use GTC for limit orders.
+        }
+        return promiseRequest("v1/margin/order", params, {
+            base: papi,
+            type: "TRADE",
+            method: "POST",
+        });
+    };
+
     const deliveryOrder = async (
         side,
         symbol,
@@ -3916,14 +3978,14 @@ let api = function Binance(options = {}) {
         if (Binance.options.verbose)
             Binance.options.log("initOrderWs: create order ws");
         ws.reconnect = Binance.options.reconnect;
-        ws.endpoint = "wsFuturesOrder";
+        ws.endpoint = Binance.options.wsEndpoint; //"wsFuturesOrder";
         ws.isAlive = false;
         ws.on("open", handleOrderSocketOpen.bind(ws, params.openCallback));
         ws.on("pong", handleOrderSocketHeartbeat);
         ws.on("error", handleOrderSocketError);
         ws.on("close", handleOrderSocketClose.bind(ws, params.reconnect));
         ws.on("message", (data) => {
-            console.log(data);
+            //console.log(data);
             try {
                 callback(JSONbig.parse(data));
             } catch (error) {
@@ -3956,9 +4018,9 @@ let api = function Binance(options = {}) {
             params: data,
         };
 
-        const ws = Binance.orderConnections["wsFuturesOrder"];
+        const ws = Binance.orderConnections[Binance.options.wsEndpoint];
         if (ws != null) {
-            //console.log(authRequest)
+            //console.log(Binance.options.wsEndpoint,authRequest);process.exit();
             ws.send(JSON.stringify(authRequest));
         } else {
             return false;
@@ -4004,46 +4066,13 @@ let api = function Binance(options = {}) {
         (orderReq["id"] = reqId), (orderReq["method"] = "order.place");
         orderReq["params"] = params;
 
-        const ws = Binance.orderConnections["wsFuturesOrder"];
+        const ws = Binance.orderConnections[Binance.options.wsEndpoint];
         if (ws != null) {
             ws.send(JSON.stringify(orderReq));
         } else {
             return false;
         }
     };
-
-    // const wsPlaceSpotOrder = function(reqId, symbol, side, quantity, price, params) {
-    //     params.symbol = symbol;
-    //     params.side = side;
-    //     if ( quantity ) params.quantity = quantity;
-
-    //     if( typeof params.positionSide === 'undefined' && Binance.options.hedgeMode ){
-    //         params.positionSide = side === 'BUY' ? 'LONG' : 'SHORT';
-    //     }
-
-    //     if ( price ) {
-    //         params.price = price;
-    //         if ( typeof params.type === 'undefined' ) params.type = 'LIMIT';
-    //     } else {
-    //         if ( typeof params.type === 'undefined' ) params.type = 'MARKET';
-    //     }
-    //     if ( !params.timeInForce && ( params.type.includes( 'LIMIT' ) || params.type === 'STOP' || params.type === 'TAKE_PROFIT' ) ) {
-    //         params.timeInForce = 'GTX'; // Post only by default. Use GTC for limit orders.
-    //     }
-    //     params['timestamp'] = new Date().getTime() + Binance.info.timeOffset
-
-    //     const orderReq = {}
-    //     orderReq['id'] = reqId,
-    //     orderReq['method'] = 'order.place'
-    //     orderReq['params'] = params
-
-    //     const ws = Binance.orderConnections['wsFuturesOrder'];
-    //     if (ws != null) {
-    //         ws.send(JSON.stringify(orderReq))
-    //     } else{
-    //         return false
-    //     }
-    // }
 
     const wsCancelOrder = function (reqId, symbol, clientOrderId) {
         const params = {};
@@ -4057,7 +4086,73 @@ let api = function Binance(options = {}) {
         orderReq["method"] = "order.cancel";
         orderReq["params"] = params;
 
-        const ws = Binance.orderConnections["wsFuturesOrder"];
+        const ws = Binance.orderConnections[Binance.options.wsEndpoint];
+        if (ws != null) {
+            ws.send(JSON.stringify(orderReq));
+        } else {
+            return false;
+        }
+    };
+
+    const wsPlaceSpotOrder = function (
+        reqId,
+        symbol,
+        side,
+        quantity,
+        price,
+        params
+    ) {
+        params.symbol = symbol;
+        params.side = side;
+        if (quantity) params.quantity = quantity;
+
+        if (
+            typeof params.positionSide === "undefined" &&
+            Binance.options.hedgeMode
+        ) {
+            params.positionSide = side === "BUY" ? "LONG" : "SHORT";
+        }
+
+        if (price) {
+            params.price = price;
+            if (typeof params.type === "undefined") params.type = "LIMIT";
+        } else {
+            if (typeof params.type === "undefined") params.type = "MARKET";
+        }
+        if (
+            !params.timeInForce &&
+            (params.type.includes("LIMIT") ||
+                params.type === "STOP" ||
+                params.type === "TAKE_PROFIT")
+        ) {
+            params.timeInForce = "GTC"; // Post only by default. Use GTC for limit orders.
+        }
+        params["timestamp"] = new Date().getTime() + Binance.info.timeOffset;
+
+        const orderReq = {};
+        (orderReq["id"] = reqId), (orderReq["method"] = "order.place");
+        orderReq["params"] = params;
+
+        const ws = Binance.orderConnections[Binance.options.wsEndpoint];
+        if (ws != null) {
+            ws.send(JSON.stringify(orderReq));
+        } else {
+            return false;
+        }
+    };
+
+    const wsCancelSpotOrder = function (reqId, symbol, clientOrderId) {
+        const params = {};
+        params.symbol = symbol;
+        params.origClientOrderId = clientOrderId;
+
+        params["timestamp"] = new Date().getTime() + Binance.info.timeOffset;
+
+        const orderReq = {};
+        orderReq["id"] = reqId;
+        orderReq["method"] = "order.cancel";
+        orderReq["params"] = params;
+        const ws = Binance.orderConnections[Binance.options.wsEndpoint];
         if (ws != null) {
             ws.send(JSON.stringify(orderReq));
         } else {
@@ -5361,6 +5456,37 @@ let api = function Binance(options = {}) {
             }
         },
 
+        accountStatus: function (callback = false) {
+            if (!callback) {
+                return new Promise((resolve, reject) => {
+                    callback = (error, response) => {
+                        if (error) {
+                            reject(error);
+                        } else {
+                            resolve(response);
+                        }
+                    };
+                    signedRequest(
+                        sapi + "v1/account/status",
+                        {},
+                        function (error, data) {
+                            return callback.call(this, error, data);
+                        },
+                        "GET"
+                    );
+                });
+            } else {
+                signedRequest(
+                    sapi + "v1/account/status",
+                    {},
+                    function (error, data) {
+                        return callback.call(this, error, data);
+                    },
+                    "GET"
+                );
+            }
+        },
+
         /**
          * Get trades for a given symbol
          * @param {string} symbol - the symbol
@@ -5756,6 +5882,22 @@ let api = function Binance(options = {}) {
             return promiseRequest("v1/lending/union/account", params, {
                 base: sapi,
                 type: "SIGNED",
+            });
+        },
+
+        flOngoingOrders: async (params = {}) => {
+            return promiseRequest("v2/loan/flexible/ongoing/orders", params, {
+                base: sapi,
+                type: "SIGNED",
+                method: "GET",
+            });
+        },
+
+        flBorrow: async (params = {}) => {
+            return promiseRequest("v2/loan/flexible/borrow", params, {
+                base: sapi,
+                type: "SIGNED",
+                method: "POST",
             });
         },
 
@@ -6582,7 +6724,7 @@ let api = function Binance(options = {}) {
             callback = false,
             isIsolated = "FALSE"
         ) {
-            marginOrder(
+            return marginOrder(
                 side,
                 symbol,
                 quantity,
@@ -6736,6 +6878,27 @@ let api = function Binance(options = {}) {
             );
         },
 
+        mgCancelByCid: function (
+            symbol,
+            clientOrderId,
+            callback = false,
+            isIsolated = "FALSE"
+        ) {
+            signedRequest(
+                sapi + "v1/margin/order",
+                {
+                    symbol: symbol,
+                    origClientOrderId: clientOrderId,
+                    isIsolated,
+                },
+                function (error, data) {
+                    if (callback)
+                        return callback.call(this, error, data, symbol);
+                },
+                "DELETE"
+            );
+        },
+
         /**
          * Gets all order of a given symbol
          * @param {string} symbol - the symbol
@@ -6802,15 +6965,12 @@ let api = function Binance(options = {}) {
          * @param {function} callback - the callback function
          * @return {undefined}
          */
-        mgOpenOrders: function (symbol, callback) {
+        mgOpenOrders: function (symbol) {
             let parameters = symbol ? { symbol: symbol } : {};
-            signedRequest(
-                sapi + "v1/margin/openOrders",
-                parameters,
-                function (error, data) {
-                    return callback.call(this, error, data, symbol);
-                }
-            );
+            return promiseRequest("v1/margin/openOrders", parameters, {
+                base: sapi,
+                type: "SIGNED",
+            });
         },
 
         /**
@@ -6961,6 +7121,67 @@ let api = function Binance(options = {}) {
         },
 
         /**
+         * Gets open orders
+         * @return {undefined}
+         */
+        mgListSpecialApiKeys: function () {
+            return promiseRequest(
+                "v1/margin/api-key-list",
+                {},
+                {
+                    base: sapi,
+                    type: "SIGNED",
+                }
+            );
+        },
+
+        /**
+         * @param {string} apiName
+         * @param {string} publicKey
+         * @param {string} ips
+         * @param {string} permissionMode
+         * @return {undefined}
+         */
+        mgCreateSpecialApiKey: function (
+            apiName,
+            publicKey,
+            ip = "",
+            permissionMode = "TRADE"
+        ) {
+            let parameters = Object.assign({
+                apiName,
+                publicKey,
+                ip,
+                permissionMode,
+            });
+            //console.log(parameters);
+            return promiseRequest("v1/margin/apiKey", parameters, {
+                base: sapi,
+                type: "SIGNED",
+                method: "POST",
+            });
+        },
+
+        /**
+         * @param {string} apiKey
+         * @param {string} ips
+         * @param {string} permissionMode
+         * @return {undefined}
+         */
+        mgEditIPForSpecialApiKey: function (apiKey, ip) {
+            let parameters = Object.assign({
+                apiKey,
+                ip,
+            });
+
+            return promiseRequest("v1/margin/apiKey/ip", parameters, {
+                base: sapi,
+                type: "SIGNED",
+                method: "PUT",
+            });
+        },
+
+        /**
          * Transfer from main account to delivery account
          * @param {string} asset - the asset
          * @param {number} amount - the asset
@@ -7016,6 +7237,14 @@ let api = function Binance(options = {}) {
                     if (callback) return callback(error, data);
                 }
             );
+        },
+
+        getBNBBurn: function () {
+            let parameters = {};
+            return promiseRequest("v1/bnbBurn", parameters, {
+                base: sapi,
+                type: "SIGNED",
+            });
         },
 
         /**
@@ -7077,7 +7306,6 @@ let api = function Binance(options = {}) {
             asset,
             amount,
             type,
-            callback,
             isIsolated = "FALSE",
             symbol = null
         ) {
@@ -7220,17 +7448,20 @@ let api = function Binance(options = {}) {
 
         /**
          * Margin account details
-         * @param {function} callback - the callback function
          * @param {boolean} isIsolated - the callback function
          * @return {undefined}
          */
-        mgAccount: function (callback, isIsolated = false) {
+        mgAccount: function (isIsolated = false) {
             let endpoint = "v1/margin";
             endpoint += isIsolated ? "/isolated" : "" + "/account";
-            signedRequest(sapi + endpoint, {}, function (error, data) {
-                if (callback) return callback(error, data);
+
+            let parameters = {};
+            return promiseRequest(endpoint, parameters, {
+                base: sapi,
+                type: "SIGNED",
             });
         },
+
         /**
          * Get maximum borrow amount of an asset
          * @param {string} asset - the asset
@@ -8185,6 +8416,41 @@ let api = function Binance(options = {}) {
             });
         },
 
+        pmGetMgPositions: async (params = {}) => {
+            return promiseRequest("v1/cm/positionRisk", params, {
+                base: papi,
+                type: "SIGNED",
+            });
+        },
+
+        pmGetMgOpenOrders: async (params = {}) => {
+            return promiseRequest("v1/margin/openOrders", params, {
+                base: papi,
+                type: "SIGNED",
+            });
+        },
+
+        pmPlaceMgOrder: pmMgOrder,
+
+        pmCancelMgOrder: async (symbol, params = {}) => {
+            // Either orderId or origClientOrderId must be sent
+            params.symbol = symbol;
+            return promiseRequest("v1/margin/order", params, {
+                base: papi,
+                type: "SIGNED",
+                method: "DELETE",
+            });
+        },
+
+        pmCancelAllCmOrders: async (symbol, params = {}) => {
+            params.symbol = symbol;
+            return promiseRequest("v1/margin/allOpenOrders", params, {
+                base: papi,
+                type: "SIGNED",
+                method: "DELETE",
+            });
+        },
+
         //###以下是ws
         websockets: {
             /**
@@ -8227,7 +8493,8 @@ let api = function Binance(options = {}) {
                                             setTimeout(
                                                 userDataKeepAlive,
                                                 60000
-                                            ); // retry in 1 minute
+                                            );
+                                        // retry in 1 minute
                                         else
                                             setTimeout(
                                                 userDataKeepAlive,
@@ -8284,6 +8551,7 @@ let api = function Binance(options = {}) {
                     sapi + "v1/userDataStream",
                     {},
                     function (error, response) {
+                        //console.log(error, response)
                         Binance.options.listenMarginKey = response.listenKey;
                         setTimeout(function userDataKeepAlive() {
                             // keepalive
@@ -8298,7 +8566,8 @@ let api = function Binance(options = {}) {
                                             setTimeout(
                                                 userDataKeepAlive,
                                                 60000
-                                            ); // retry in 1 minute
+                                            );
+                                        // retry in 1 minute
                                         else
                                             setTimeout(
                                                 userDataKeepAlive,
@@ -8373,7 +8642,8 @@ let api = function Binance(options = {}) {
                                             setTimeout(
                                                 userDataKeepAlive,
                                                 60000
-                                            ); // retry in 1 minute
+                                            );
+                                        // retry in 1 minute
                                         else
                                             setTimeout(
                                                 userDataKeepAlive,
@@ -8523,7 +8793,8 @@ let api = function Binance(options = {}) {
                                             setTimeout(
                                                 userDataKeepAlive,
                                                 60000
-                                            ); // retry in 1 minute
+                                            );
+                                        // retry in 1 minute
                                         else
                                             setTimeout(
                                                 userDataKeepAlive,
@@ -9209,6 +9480,28 @@ let api = function Binance(options = {}) {
 
             wsCancelOrder: function (id, symbol, clientOrderId) {
                 return wsCancelOrder(id, symbol, clientOrderId);
+            },
+
+            wsPlaceSpotOrder: function (
+                id,
+                symbol,
+                side,
+                quantity,
+                price,
+                params
+            ) {
+                return wsPlaceSpotOrder(
+                    id,
+                    symbol,
+                    side,
+                    quantity,
+                    price,
+                    params
+                );
+            },
+
+            wsCancelSpotOrder: function (id, symbol, clientOrderId) {
+                return wsCancelSpotOrder(id, symbol, clientOrderId);
             },
         },
     };

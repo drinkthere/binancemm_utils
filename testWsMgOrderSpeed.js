@@ -19,18 +19,19 @@ const keyIndex = configs.keyIndexMap[account];
 
 let options = {
     keyIndex,
+    intranet: false,
+    localAddress: configs.binanceLocalAddress[account],
     apiKey: configs.keyMap[account].apiKey,
     apiSecret: configs.keyMap[account].apiSecret,
-    intranet,
-    tradingWsUrl: intranet ? "ifTradingWsUrl" : "fTradingWsUrl",
-    wsEndpoint: "wsFuturesOrder",
+    tradingWsUrl: "sTradingWsUrl",
+    wsEndpoint: "wsSpotOrder",
 };
 
 const exchangeClient = new BinanceClient(options);
 
 const symbol = "POLUSDT";
-const quantity = "20";
-const price = "0.45";
+const quantity = "30";
+const price = "0.21";
 
 const orderUpdateHandler = async (orders) => {
     for (let order of orders) {
@@ -51,9 +52,15 @@ const orderUpdateHandler = async (orders) => {
     }
 };
 
-const positionUpdateHandler = async (positions) => {};
+const positionUpdateHandler = async (positions) => {
+    console.log(positions);
+};
 
-genClientOrderId = () => {
+const balanceUpdateHandler = async (balances) => {
+    console.log(balances);
+};
+
+const genClientOrderId = () => {
     return uuidv4().replace(/-/g, "");
 };
 
@@ -66,9 +73,12 @@ const main = async () => {
         exchangeClient.initWsEventHandler({
             orders: orderUpdateHandler,
             positions: positionUpdateHandler,
+            balances: balanceUpdateHandler,
         });
-        exchangeClient.wsFuturesUserData();
-        exchangeClient.wsInitOrderConnection(orderCallback);
+
+        exchangeClient.wsMarginUserData();
+        //exchangeClient.wsSpotUserData();
+        exchangeClient.wsInitMgOrderConnection(orderCallback);
         await sleep(2000);
 
         let limit = 100;
@@ -82,7 +92,7 @@ const main = async () => {
             const start = Date.now();
             // 下单
             console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
-            const result = exchangeClient.wsPlaceOrder(
+            const result = exchangeClient.wsPlaceSpotOrder(
                 symbol,
                 "BUY",
                 quantity,
@@ -95,11 +105,12 @@ const main = async () => {
             //console.log(result)
             // console.log(`NEW ${Date.now()-start}`)
             await sleep(1000);
-            // // 撤单
+            // 撤单
+
             console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
-            await exchangeClient.wsCancelOrder(symbol, clientOrderId);
+            await exchangeClient.wsCancelSpotOrder(symbol, clientOrderId);
             console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
-            await sleep(1000);
+            await sleep(2000);
             process.exit();
         });
     } catch (e) {

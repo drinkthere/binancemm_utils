@@ -9,7 +9,7 @@ const { hasUncaughtExceptionCaptureCallback } = require("process");
 const maxNotUpdateTime = 10000; // 10s
 const maxP99DelayTime = 50; // 35
 const ipcMap = {
-    tickerIPC: "tcp://127.0.0.1:21001",
+    tickerIPC: "tcp://127.0.0.1:21002",
 };
 
 const pbRoot = protobuf.loadSync("./proto/newticker.proto");
@@ -19,7 +19,7 @@ const ticker = pbRoot.lookupType("TickerInfo");
 
 // const orderBookRoot = protobuf.loadSync("./proto/okxorderbook.proto");
 // const orderBook = orderBookRoot.lookupType("OkxOrderBook");
-
+let message = null;
 const subscribeArr = [];
 const subscribeMsg = async () => {
     for (let key of Object.keys(ipcMap)) {
@@ -46,9 +46,9 @@ const subscribeMsg = async () => {
 
         // Receive messages
         for await (const [msg] of sock) {
-            const message = ticker.decode(msg);
+            message = ticker.decode(msg);
             //console.log(message);
-            console.log(message.instID, message.bestBid, message.bestAsk);
+            //console.log(message.instID, message.bestBid, message.bestAsk);
         }
     }
 };
@@ -64,7 +64,7 @@ const messageHandler = (key, pbMsg) => {
             message.eventTs.toNumber()
         );
     } else if (key == "orderBookIPC") {
-        const message = orderBook.decode(pbMsg);
+        //message = orderBook.decode(pbMsg);
         // console.log(
         //     message.instID,
         //     message.instType,
@@ -81,7 +81,18 @@ const messageHandler = (key, pbMsg) => {
 };
 
 const main = async () => {
-    await subscribeMsg();
+    subscribeMsg();
+    // 启动一个定时器，每秒打印一次最新消息
+    setInterval(() => {
+        if (message) {
+            const { instID, bestBid, bestAsk } = message;
+            log(
+                `Latest: ${instID}, Best Bid: ${bestBid}, Best Ask: ${bestAsk}`
+            );
+        } else {
+            log("No messages received yet...");
+        }
+    }, 1000); // 每秒打印一次
 };
 main();
 

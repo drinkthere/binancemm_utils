@@ -1,8 +1,8 @@
 const zmq = require("zeromq");
 const fs = require("fs");
 const protobuf = require("protobufjs");
-const { scheduleLoopTask, sleep } = require("./utils/run");
-const { log } = require("./utils/log");
+const { scheduleLoopTask, sleep } = require("./utils/run.js");
+const { log } = require("./utils/log.js");
 const TgService = require("./services/tg.js");
 const tgBot = new TgService();
 
@@ -45,7 +45,7 @@ const checkTimeouts = () => {
             let msg = "";
             const now = Date.now();
             if (now - lastUpdateTime > maxNotUpdateTime) {
-                msg += `No message received for okx ticker for ${
+                msg += `No message received for okx zoned ticker for ${
                     (now - lastUpdateTime) / 1000
                 }s\n`;
             }

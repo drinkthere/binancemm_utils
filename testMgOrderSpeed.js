@@ -45,48 +45,52 @@ const orderUpdateHandler = async (orders) => {
     }
 };
 
-const positionUpdateHandler = async (positions) => {};
+const positionUpdateHandler = async (positions) => {
+    // console.log(positions)
+};
+
+const balanceUpdateHandler = async (balances) => {
+    console.log(balances);
+};
 
 const genClientOrderId = () => {
     return uuidv4().replace(/-/g, "");
 };
 
 const main = async () => {
+    // const result = await exchangeClient.getMarginOpenOrders(symbol)
+    // console.log(result);process.exit();
     exchangeClient.initWsEventHandler({
         orders: orderUpdateHandler,
         positions: positionUpdateHandler,
+        balances: balanceUpdateHandler,
     });
-    exchangeClient.wsFuturesUserData();
+    exchangeClient.wsMarginUserData();
     await sleep(2000);
-
-    let limit = 100;
-    let i = 0;
     scheduleLoopTask(async () => {
-        if (i >= limit) {
-            process.exit();
-        }
-        i++;
         const clientOrderId = genClientOrderId();
         const start = Date.now();
         // 下单
         console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
-        const result = await exchangeClient.placeFuturesOrder(
-            "BUY",
-            symbol,
-            20,
-            0.4,
-            {
-                newClientOrderId: clientOrderId,
-            }
-        );
+        await exchangeClient.placeMarginOrder("BUY", symbol, 30, 0.2, {
+            newClientOrderId: clientOrderId,
+        });
+        // await exchangeClient.placeSpotOrder(
+        //     "BUY",
+        //     symbol,
+        //     30,
+        //     0.2,
+        //     {
+        //         newClientOrderId: clientOrderId,
+        //     }
+        // );
         console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
-        console.log(result);
         // console.log(`NEW ${Date.now()-start}`)
-        await sleep(2000);
-        // 撤单
-        console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
-        await exchangeClient.cancelFuturesOrder(symbol, clientOrderId);
-        console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
+        // await sleep(2000);
+        // // 撤单
+        // console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
+        // await exchangeClient.cancelMarginOrder(symbol, clientOrderId);
+        // console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
         await sleep(2000);
         process.exit();
     });

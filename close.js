@@ -39,9 +39,9 @@ const closePositions = async () => {
         let i = 0;
         if (positions != null && positions.length > 0) {
             for (let position of positions) {
-                if (["BTCUSDT", "ETHUSDT"].includes(position.symbol)) {
-                    continue;
-                }
+                // if (["BTCUSDT", "ETHUSDT"].includes(position.symbol)) {
+                //     continue;
+                // }
                 await exchangeClient.cancelAllFuturesOrders(position.symbol);
 
                 if (position.positionAmt == 0) {
@@ -83,8 +83,13 @@ const closePositions = async () => {
                 await sleep(500);
             }
         }
-        console.log(`still ${i} positions need to be close`);
-        await sleep(20 * 1000);
+        if (i == 0) {
+            console.log(`all positions have been closed`);
+            process.exit();
+        } else {
+            console.log(`still ${i} positions need to be close`);
+            await sleep(20 * 1000);
+        }
     });
 };
 
