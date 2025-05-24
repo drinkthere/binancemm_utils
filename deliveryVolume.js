@@ -22,26 +22,71 @@ let options = {
 const exchangeClient = new BinanceClient(options);
 
 let deliverySymbolNotionalMap = {};
+let deliverySymbolBaseCoinMap = {};
 const main = async () => {
     await init();
-
-    await statDailyVolume("2024-11-12");
+    await statTotalVolume();
+    // await statDailyVolume("2024-11-12");
 };
 
 const init = async () => {
     const exchangeInfo = await exchangeClient.getDeliveryExchangeInfo();
-
     deliverySymbolNotionalMap = exchangeInfo.symbols
         .filter(
-            (item) =>
-                item.contractStatus == "TRADING" &&
-                !["BTC", "ETH"].includes(item.baseAsset)
+            (item) => item.contractStatus == "TRADING"
+            // && !["BTC", "ETH"].includes(item.baseAsset)
         )
         .reduce((map, item) => {
             map[item.symbol] = item.contractSize;
             return map;
         }, {});
-    //console.log(Object.keys(deliverySymbolNotionalMap));process.exit();
+    deliverySymbolBaseCoinMap = exchangeInfo.symbols
+        .filter((item) => item.contractStatus == "TRADING")
+        .reduce((map, item) => {
+            map[item.symbol] = item.baseAsset;
+            return map;
+        }, {});
+    //console.log(deliverySymbolNotionalMap, deliverySymbolBaseCoinMap);process.exit();
+};
+
+const statTotalVolume = async () => {
+    const symbolNotionalMap = {};
+    let total = 0;
+    let btceth = 0;
+    let others = 0;
+    const limit = 30;
+    // 获取所有symbols在date的日K线
+    for (let symbol of Object.keys(deliverySymbolNotionalMap)) {
+        const klines = await exchangeClient.getDeliveryKline(symbol, "1d", {
+            limit,
+        });
+        console.log(klines.length);
+        process.exit();
+
+        klines.map((kl) => {
+            let notional =
+                parseInt(kl[5], 10) *
+                parseInt(deliverySymbolNotionalMap[symbol], 10);
+            if (Object.keys(symbolNotionalMap).includes(symbol)) {
+                symbolNotionalMap[symbol] += notional;
+            } else {
+                symbolNotionalMap[symbol] = notional;
+            }
+            if (["BTC", "ETH"].includes(deliverySymbolBaseCoinMap[symbol])) {
+                btceth += notional;
+            } else {
+                others += notional;
+            }
+        });
+        await sleep(100);
+    }
+    total += btceth + others;
+    for (let symbol in symbolNotionalMap) {
+        console.log(symbol, symbolNotionalMap[symbol].toLocaleString());
+    }
+    console.log(limit, " days total notional is ", total.toLocaleString());
+    console.log(limit, " days BTC ETH notional is ", btceth.toLocaleString());
+    console.log(limit, " days ALT COIN notional is ", others.toLocaleString());
 };
 
 const statDailyVolume = async (endDate) => {

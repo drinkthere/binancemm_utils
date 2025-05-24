@@ -12,12 +12,19 @@ const urlMap = {
     ifapi: "https://fapi-mm.binance.com/fapi/",
     ifstream: "wss://fstream-mm.binance.com/stream?streams=",
     ifstreamSingle: "wss://fstream-mm.binance.com/ws/",
+    idapi: "https://dapi-mm.binance.com/dapi/",
+    idstream: "wss://dstream-mm.binance.com/stream?streams=",
+    idstreamSingle: "wss://dstream-mm.binance.com/ws/",
     fTradingWsUrl:
         "wss://ws-fapi.binance.com/ws-fapi/v1?returnRateLimits=false",
     ifTradingWsUrl:
         "wss://ws-fapi-mm.binance.com/ws-fapi/v1?returnRateLimits=false",
     sTradingWsUrl:
         "wss://ws-api.binance.com:443/ws-api/v3?returnRateLimits=false",
+    dTradingWsUrl:
+        "wss://ws-dapi.binance.com/ws-dapi/v1?returnRateLimits=false",
+    dTradingWsUrl:
+        "wss://ws-dapi-mm.binance.com/ws-dapi/v1?returnRateLimits=false",
 };
 class BinanceClient {
     constructor(options = {}) {
@@ -38,14 +45,21 @@ class BinanceClient {
         }
 
         if (options.intranet) {
-            default_options["urls"] = {
-                fapi: urlMap["ifapi"],
-                fstream: urlMap["ifstream"],
-                fstreamSingle: urlMap[ifstreamSingle],
-            };
+            if (options.instType == "delivery") {
+                default_options["urls"] = {
+                    dapi: urlMap["idapi"],
+                    dstream: urlMap["idstream"],
+                    dstreamSingle: urlMap["idstreamSingle"],
+                };
+            } else {
+                default_options["urls"] = {
+                    fapi: urlMap["ifapi"],
+                    fstream: urlMap["ifstream"],
+                    fstreamSingle: urlMap["ifstreamSingle"],
+                };
+            }
         }
         this.wsUrl = urlMap[options["tradingWsUrl"]];
-
         let keyIndex = 0;
         if (options.keyIndex) {
             keyIndex = options.keyIndex;
@@ -58,6 +72,7 @@ class BinanceClient {
         // 初始化Binance client
         default_options["APIKEY"] = apiKeyArr[keyIndex];
         default_options["APISECRET"] = apiSecretArr[keyIndex];
+        //console.log(default_options);
         this.client = new Binance().options({ ...default_options });
 
         if (
@@ -88,6 +103,14 @@ class BinanceClient {
 
     async getConState() {
         return await this.client.futuresConState();
+    }
+
+    async getResponseInfo() {
+        return await this.client.getInfo();
+    }
+
+    async getSpotExchangeInfo() {
+        return await this.client.exchangeInfo();
     }
 
     async getSpotTickers() {
@@ -263,6 +286,10 @@ class BinanceClient {
         return await this.client.futuresCandles(symbol, interval, params);
     }
 
+    async getDeliveryAccount() {
+        return await this.client.deliveryAccount();
+    }
+
     async getDeliveryExchangeInfo() {
         return await this.client.deliveryExchangeInfo();
     }
@@ -361,12 +388,20 @@ class BinanceClient {
         });
     }
 
+    async cancelAllSpotOrders(symbol) {
+        return await this.client.cancelAll(symbol);
+    }
+
     async getPositionSide() {
         return await this.client.futuresPositionSideDual();
     }
 
-    async setPositionSide(dual) {
+    async setFuturesPositionSide(dual) {
         return await this.client.futuresChangePositionSideDual(dual);
+    }
+
+    async setDeliveryPositionSide(dual) {
+        return await this.client.deliveryChangePositionSideDual(dual);
     }
 
     async getMultiAssetsMargin() {
@@ -552,6 +587,10 @@ class BinanceClient {
         return await this.client.mgAllAssets();
     }
 
+    async transferDust(assets) {
+        return await this.client.dustTransfer(assets, console.log);
+    }
+
     async placeMarginOrder(side, symbol, quantity, price, params) {
         side = side.toUpperCase();
         return await this.client.mgOrder(
@@ -648,8 +687,13 @@ class BinanceClient {
                     if (this.handlers["orders"]) {
                         const lastFilledPrice = parseFloat(event.L);
                         const lastFilledQuantity = parseFloat(event.l);
-                        const clientOrderId =
-                            event.X == "NEW" ? event.c : event.C;
+                        const clientOrderId = [
+                            "NEW",
+                            "EXPIRED",
+                            "FILLED",
+                        ].includes(event.X)
+                            ? event.c
+                            : event.C;
                         const order = {
                             symbol: event.s,
                             clientOrderId: clientOrderId,
@@ -829,6 +873,14 @@ class BinanceClient {
         return await this.client.pmCmChangePositionSideDual(dual);
     }
 
+    async pmProGetAccount() {
+        return await this.client.pmProGetAccount();
+    }
+
+    async pmProGetBalance() {
+        return await this.client.pmProGetBalance();
+    }
+
     // 统一账户下U本位合约的订单
     async vipLoanBorrow(side, symbol, quantity, price, params) {
         side = side.toUpperCase();
@@ -922,6 +974,38 @@ class BinanceClient {
         //       activationPrice: undefined
         //     }
         // }
+    }
+
+    pmProInitWsEventHandler(handlers) {
+        this.pmProHandlers = handlers;
+    }
+
+    wsPmProUserData() {
+        const r = this.client.websockets.userPmData(
+            (event) => {
+                if (event.eventType == "ACCOUNT_UPDATE") {
+                    let positions = event.updateData.positions;
+                    //const stdPositions = this._formatPositions(positions);
+                    if (this.pmHandlers["positions"] != null) {
+                        this.pmHandlers["positions"](positions);
+                    }
+
+                    if (this.pmHandlers["balances"] != null) {
+                        let balances = event.updateData.balances;
+                        this.pmHandlers["balances"](balances);
+                    }
+                }
+            },
+            (event) => {
+                if (event.eventType == "ORDER_TRADE_UPDATE") {
+                    let order = event.order;
+                    if (this.pmHandlers["orders"] != null) {
+                        const stdOrder = this._pmFormatOrder(order);
+                        this.pmHandlers["orders"]([stdOrder]);
+                    }
+                }
+            }
+        );
     }
 
     genClientOrderId() {

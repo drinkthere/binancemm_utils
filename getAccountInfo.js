@@ -33,6 +33,9 @@ const main = async () => {
         // console.log(
         //     `1 min limit ${limit1Min.limit}, 10 sec limit ${limit10Sec.limit}`
         // );
+        //  const ei = await exchangeClient.getSpotExchangeInfo();
+        //  const spotRateLimits = ei.rateLimits.filter(item => item.rateLimitType == "ORDERS" && item.interval == 'DAY')
+        //  console.log(spotRateLimits);
 
         const balances = await exchangeClient.getFuturesBalances();
         let fbalanceLen = 0;
@@ -225,15 +228,16 @@ const main = async () => {
                 if (
                     asset.free != "0" ||
                     asset.locked != "0" ||
-                    asset.borrowed != "0"
+                    asset.borrowed != "0" ||
+                    asset.interest != "0"
                 ) {
                     console.log(
                         asset.asset,
-                        asset.free,
-                        asset.locked,
-                        asset.borrowed,
-                        asset.netAsset,
-                        asset.interest
+                        "f:" + asset.free,
+                        "l:" + asset.locked,
+                        "b:" + asset.borrowed,
+                        "n:" + asset.netAsset,
+                        "in:" + asset.interest
                     );
                 }
             }

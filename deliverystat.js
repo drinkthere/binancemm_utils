@@ -24,6 +24,7 @@ let options = {
     localAddress: configs.binanceLocalAddress[account],
 };
 const exchangeClient = new BinanceClient(options);
+const initPosition = configs["deliveryInitPositions"][account];
 
 // 初始化同步锁
 const lock = new AsyncLock();
@@ -33,35 +34,38 @@ const statOrderService = new StatOrderService();
 const tgService = new TgService();
 let noOrders = 0;
 let maxNoOrdersTimes = 5;
-let contractSizeMap = {};
-
+let deliveryAccount = account + "_delivery";
+let tickerMap = {};
 const orderUpdateHandler = async (orders) => {
     for (let order of orders) {
         // 使用clientOrderId作为锁的key，避免并发引起的更新错误
         const clientOrderId = order.clientOrderId;
         await lock.acquire(clientOrderId, async () => {
-            if (["FILLED"].includes(order.orderStatus)) {
+            if (["FILLED", "PARTIALLY_FILLED"].includes(order.orderStatus)) {
                 const symbol = order.symbol;
                 const side = order.side;
-                const quantity = order.originalQuantity;
+                const quantity = order.lastFilledQuantity;
                 const amount = quantity;
-                const price = order.originalPrice;
-                const notional = contractSizeMap[order.symbol];
+                const price = order.lastFilledPrice;
+                const notional = order.lastFilledNotional;
                 const maker = order.isMaker;
 
-                const msg = `${account} ${clientOrderId} ${symbol} ${side} ${order.orderStatus} ${amount}@${price} notional:${notional}`;
+                const msg = `${deliveryAccount} ${clientOrderId} ${symbol} ${side} ${order.orderStatus} ${amount}@${price} notional:${notional} maker:${maker}`;
                 log(msg);
 
                 // 将订单写入数据库
-                await statOrderService.saveOrder(`tb_cmm_order_${account}`, {
-                    symbol,
-                    side,
-                    quantity,
-                    amount,
-                    price,
-                    notional,
-                    maker,
-                });
+                await statOrderService.saveOrder(
+                    `tb_order_${deliveryAccount}`,
+                    {
+                        symbol,
+                        side,
+                        quantity,
+                        amount,
+                        price,
+                        notional,
+                        maker,
+                    }
+                );
             }
         });
     }
@@ -70,19 +74,54 @@ const orderUpdateHandler = async (orders) => {
 const scheduleStatProfit = () => {
     scheduleLoopTask(async () => {
         try {
-            // 这里计算usdt价值时，用现货价格
-            const balances = await exchangeClient.getDeliveryBalances();
-            const balMap = {};
-            balances.map((item) => {
-                if (parseFloat(item.balance) > 0) {
-                    balMap[item.asset] =
-                        parseFloat(item.balance) + parseFloat(item.crossUnPnl);
-                }
-            });
-            log("balMap:");
-            console.log(balMap);
+            const accountInfo = await exchangeClient.getDeliveryAccount();
+            const balances = accountInfo.assets;
+            const positions = accountInfo.positions;
+            //console.log(Object.keys(account));process.exit();
 
-            const positions = await exchangeClient.getDeliveryPositions();
+            let usdtBalanceArr = balances
+                .filter((item) => item.asset == "USDT")
+                .map(
+                    (item) =>
+                        parseFloat(item.walletBalance) +
+                        parseFloat(item.crossUnPnl)
+                );
+            const usdtBalance =
+                usdtBalanceArr.length == 0 ? 0 : parseFloat(usdtBalanceArr[0]);
+
+            let tradingBalance = balances.reduce((total, item) => {
+                let notional = 0;
+                const amt =
+                    parseFloat(item.walletBalance) +
+                    parseFloat(item.crossUnPnl);
+                if (amt > 0) {
+                    if (["USDT", "USDC", "BFUSD"].includes(item.asset)) {
+                        notional = amt;
+                    } else {
+                        notional =
+                            amt * parseFloat(tickerMap[item.asset + "USDT"]);
+                    }
+                }
+                return total + notional;
+            }, 0);
+            const fundingBalanceArr =
+                await exchangeClient.getFundingAccountBalances();
+            let fundingBalance = fundingBalanceArr.reduce((total, item) => {
+                let bal = 0;
+                if (["USDT", "USDC", "BFUSD"].includes(item.asset)) {
+                    bal = parseFloat(item.balance);
+                } else {
+                    if (parseFloat(item.free) > 0) {
+                        bal =
+                            parseFloat(tickerMap[item.asset + "USDT"]) *
+                            parseFloat(item.free);
+                    }
+                }
+                return total + bal;
+            }, 0);
+            log(
+                `tradingBalance=${tradingBalance}, fundingBalance=${fundingBalance}`
+            );
             let notionalBTCETH = 0;
             let notionalOther = 0;
             let positionsNum = 0;
@@ -94,19 +133,17 @@ const scheduleStatProfit = () => {
                             position.symbol.includes("BTCUSD") ||
                             position.symbol.includes("ETHUSD")
                         ) {
-                            notionalBTCETH +=
-                                parseInt(position.positionAmt, 10) *
-                                contractSizeMap[position.symbol];
+                            notionalBTCETH += parseFloat(
+                                position.notionalValue
+                            );
                         } else {
-                            notionalOther +=
-                                parseInt(position.positionAmt, 10) *
-                                contractSizeMap[position.symbol];
+                            notionalOther += parseFloat(position.notionalValue);
                         }
                     }
                 }
             }
             const notionalAll = notionalBTCETH + notionalOther;
-            let msg = `${account}|PositionDeltaWithBTCETH=${notionalBTCETH.toFixed(
+            let msg = `${deliveryAccount}|PositionDeltaWithBTCETH=${notionalBTCETH.toFixed(
                 2
             )}|PositionDeltaWithoutBTCETH$=${notionalOther.toFixed(
                 2
@@ -135,7 +172,7 @@ const scheduleStatProfit = () => {
                 noOrders++;
                 if (noOrders >= maxNoOrdersTimes) {
                     // 报警
-                    tgService.sendMsg(`${account} orders numbers warning`);
+                    //tgService.sendMsg(`${account} orders numbers warning`);
                     noOrders = 0;
                     maxNoOrdersTimes = 2 * maxNoOrdersTimes;
                 }
@@ -146,37 +183,30 @@ const scheduleStatProfit = () => {
                 `The num of open orders is ${ordersNum}(B:${buyOrdersNum}|S:${sellOrdersNum})`
             );
 
-            let marginRatioMap = {};
             let marginRatioArr = await exchangeClient.getDeliveryMarginRatio();
+            let minMaginRatio = 1000;
             for (let item of marginRatioArr) {
                 const maintMargin = parseFloat(item.maintMargin);
                 const marginBalance = parseFloat(item.marginBalance);
                 const marginRatio =
                     maintMargin > 0 ? marginBalance / maintMargin : 999;
-                marginRatioMap[item.asset] = marginRatio;
+                if (marginRatio < minMaginRatio) {
+                    minMaginRatio = marginRatio;
+                }
             }
-            console.log("marginRatioMap", marginRatioMap);
+            console.log("marginRatio", minMaginRatio);
 
-            // 将统计信息写入数据库
-            await statOrderService.saveCoinMmInfo({
-                account,
+            await statOrderService.saveBalance({
+                account: deliveryAccount,
+                usdt_balance: usdtBalance.toFixed(2),
+                trading_balance: tradingBalance.toFixed(2),
+                funding_balance: fundingBalance.toFixed(2),
                 btc_eth_delta: notionalBTCETH.toFixed(2),
                 other_delta: notionalOther.toFixed(2),
                 total_delta: notionalAll.toFixed(2),
+                margin_ratio: minMaginRatio,
                 orders_num: ordersNum,
                 position_count: positionsNum,
-            });
-
-            // 将balance信息写入数据库
-            await statOrderService.saveCoinMmBalance({
-                account,
-                data: JSON.stringify(balMap),
-            });
-
-            // 将marginRatio信息写入数据库
-            await statOrderService.saveCoinMmMarginRatio({
-                account,
-                data: JSON.stringify(marginRatioMap),
             });
         } catch (e) {
             console.error(e);
@@ -186,18 +216,11 @@ const scheduleStatProfit = () => {
 };
 
 const main = async () => {
-    const dExInfo = await exchangeClient.getDeliveryExchangeInfo();
-    contractSizeMap = dExInfo.symbols
-        .filter((item) => item.contractStatus == "TRADING")
-        .reduce((dContMap, item) => {
-            dContMap[item.symbol] = item.contractSize;
-            return dContMap;
-        }, {});
-
-    exchangeClient.initWsEventHandler({
-        orders: orderUpdateHandler,
-    });
-    exchangeClient.wsDeliverUserData();
+    tickerMap = await exchangeClient.getSpotTickers();
+    // exchangeClient.initWsEventHandler({
+    //     orders: orderUpdateHandler,
+    // });
+    // exchangeClient.wsDeliverUserData();
 
     scheduleStatProfit();
 };

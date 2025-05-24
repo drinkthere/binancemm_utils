@@ -28,11 +28,15 @@ const main = async () => {
         // let res = await exchangeClient.getPositionSide();
         // console.log(res);
 
-        const result = await exchangeClient.setPositionSide("false");
+        let result = await exchangeClient.setFuturesPositionSide("false");
         console.log(result);
         await sleep(1000);
-        res = await exchangeClient.getPositionSide();
-        console.log(res);
+        // result = await exchangeClient.setDeliveryPositionSide("false");
+        // console.log(result);
+        // await sleep(1000);
+        // res = await exchangeClient.getPositionSide();
+        // console.log(res);
+        await sleep(1000);
 
         // let res = await exchangeClient.pmGetCmPositionSide();
         // console.log(res);

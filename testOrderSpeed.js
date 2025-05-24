@@ -24,6 +24,7 @@ let options = {
     localAddress: configs.binanceLocalAddress[account],
     intranet,
 };
+
 const exchangeClient = new BinanceClient(options);
 
 const orderUpdateHandler = async (orders) => {
@@ -59,7 +60,7 @@ const main = async () => {
     exchangeClient.wsFuturesUserData();
     await sleep(2000);
 
-    let limit = 100;
+    let limit = 1;
     let i = 0;
     scheduleLoopTask(async () => {
         if (i >= limit) {
@@ -73,8 +74,8 @@ const main = async () => {
         const result = await exchangeClient.placeFuturesOrder(
             "BUY",
             symbol,
-            20,
-            0.4,
+            40,
+            0.2,
             {
                 newClientOrderId: clientOrderId,
             }
@@ -88,7 +89,6 @@ const main = async () => {
         await exchangeClient.cancelFuturesOrder(symbol, clientOrderId);
         console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
         await sleep(2000);
-        process.exit();
     });
 };
 main();

@@ -156,6 +156,7 @@ let api = function Binance(options = {}) {
             if (typeof urls.wapi === "string") wapi = urls.wapi;
             if (typeof urls.sapi === "string") sapi = urls.sapi;
             if (typeof urls.fapi === "string") fapi = urls.fapi;
+            if (typeof urls.dapi === "string") dapi = urls.dapi;
             if (typeof urls.fapiTest === "string") fapiTest = urls.fapiTest;
             if (typeof urls.stream === "string") stream = urls.stream;
             if (typeof urls.combineStream === "string")
@@ -176,12 +177,6 @@ let api = function Binance(options = {}) {
                 dstreamSingleTest = urls.dstreamSingleTest;
         }
         // console.log(Binance.options)
-        if (Binance.options.deliveryColo) {
-            dstream = "wss://dstream-mm.binance.com/stream?streams=";
-            dstreamSingle = "wss://dstream-mm.binance.com/ws/";
-            dstreamSingleTest = "wss://dstream-mm.binancefuture.com/ws/";
-            dstreamTest = "wss://dstream-mm.binancefuture.com/stream?streams=";
-        }
         if (Binance.options.useServerTime) {
             publicRequest(base + "v3/time", {}, function (error, response) {
                 Binance.info.timeOffset =
@@ -607,7 +602,7 @@ let api = function Binance(options = {}) {
             sapi + endpoint,
             opt,
             function (error, response) {
-                //console.log(error, response)
+                console.log(error, response);
                 if (!response) {
                     if (callback) callback(error, response);
                     else Binance.options.log("Order() error:", error);
@@ -776,6 +771,7 @@ let api = function Binance(options = {}) {
         ) {
             params.timeInForce = "GTX"; // Post only by default. Use GTC for limit orders.
         }
+
         return promiseRequest("v1/order", params, {
             base: dapi,
             type: "TRADE",
@@ -3886,7 +3882,6 @@ let api = function Binance(options = {}) {
      */
     const handleOrderSocketClose = function (reconnect, code, reason) {
         delete Binance.orderConnections[this.endpoint];
-
         Binance.options.log(
             "Order WebSocket closed: " +
                 this.endpoint +
@@ -3980,6 +3975,7 @@ let api = function Binance(options = {}) {
         ws.reconnect = Binance.options.reconnect;
         ws.endpoint = Binance.options.wsEndpoint; //"wsFuturesOrder";
         ws.isAlive = false;
+        console.log(ws);
         ws.on("open", handleOrderSocketOpen.bind(ws, params.openCallback));
         ws.on("pong", handleOrderSocketHeartbeat);
         ws.on("error", handleOrderSocketError);
@@ -6273,6 +6269,7 @@ let api = function Binance(options = {}) {
 
         futuresChangeMultiAssetsMargin: async (multi, params = {}) => {
             params.multiAssetsMargin = multi;
+            console.log(params);
             return promiseRequest("v1/multiAssetsMargin", params, {
                 base: fapi,
                 type: "SIGNED",
@@ -8451,6 +8448,21 @@ let api = function Binance(options = {}) {
             });
         },
 
+        // portfolio pro相关的处理
+        pmProGetAccount: async (params = {}) => {
+            return promiseRequest("v1/portfolio/account", params, {
+                base: sapi,
+                type: "SIGNED",
+            });
+        },
+
+        // portfolio相关的处理
+        pmProGetBalance: async (params = {}) => {
+            return promiseRequest("v1/portfolio/balance", params, {
+                base: sapi,
+                type: "SIGNED",
+            });
+        },
         //###以下是ws
         websockets: {
             /**
@@ -8628,6 +8640,7 @@ let api = function Binance(options = {}) {
                     url + "v1/listenKey",
                     {},
                     function (error, response) {
+                        // console.log(error, url + "v1/listenKey")
                         Binance.options.listenFutureKey = response.listenKey;
                         setTimeout(function userDataKeepAlive() {
                             // keepalive
@@ -8692,7 +8705,6 @@ let api = function Binance(options = {}) {
                 subscribed_callback = undefined
             ) {
                 const url = Binance.options.test ? dapiTest : dapi;
-
                 let reconnect = () => {
                     if (Binance.options.reconnect)
                         userDeliveryData(
@@ -8779,6 +8791,7 @@ let api = function Binance(options = {}) {
                     url + "v1/listenKey",
                     {},
                     function (error, response) {
+                        // console.log(url + "v1/listenKey", error)
                         Binance.options.listenFutureKey = response.listenKey;
                         setTimeout(function userDataKeepAlive() {
                             // keepalive

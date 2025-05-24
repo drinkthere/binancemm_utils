@@ -24,9 +24,9 @@ async function scheduleLoopTask(task, stopFunc) {
         if (stopFunc && stopFunc()) {
             return;
         }
-        _loop();
+        return _loop();
     };
-    _loop();
+    return _loop();
 }
 
 async function scheduleLoopTaskWithArgs(task, taskArgs, stopFunc) {
@@ -49,6 +49,34 @@ function getDecimals(numString) {
     } else {
         return 0;
     }
+}
+
+function formatQty(quantity, precision) {
+    const decimals = getDecimals(precision);
+    if (quantity > 0) {
+        // For positive numbers, round down the last digit
+        const factor = Math.pow(10, decimals);
+        return Math.floor(quantity * factor) / factor;
+    } else if (quantity < 0) {
+        // For negative numbers, round up the last digit
+        const factor = Math.pow(10, decimals);
+        return -Math.ceil(-quantity * factor) / factor;
+    }
+    return 0;
+}
+
+function formatQtyCeil(quantity, precision) {
+    const decimals = getDecimals(precision);
+    if (quantity > 0) {
+        // For positive numbers, round down the last digit
+        const factor = Math.pow(10, decimals);
+        return Math.ceil(quantity * factor) / factor;
+    } else if (quantity < 0) {
+        // For negative numbers, round up the last digit
+        const factor = Math.pow(10, decimals);
+        return -Math.ceil(-quantity * factor) / factor;
+    }
+    return 0;
 }
 
 function convertScientificToString(scientificNumber) {
@@ -104,13 +132,38 @@ function writeStringToFile(filePath, content) {
     });
 }
 
+function convertToTimestamp(dateTimeStr) {
+    // 检查输入参数
+    if (!dateTimeStr || typeof dateTimeStr !== "string") {
+        throw new Error("输入必须是一个有效的日期时间字符串");
+    }
+
+    // 确保格式正确
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateTimeStr)) {
+        throw new Error("日期时间格式应为: YYYY-MM-DD HH:MM:SS");
+    }
+
+    // 创建日期对象并获取时间戳
+    const timestamp = new Date(dateTimeStr.replace(" ", "T")).getTime();
+
+    // 验证结果是否为有效数字
+    if (isNaN(timestamp)) {
+        throw new Error("无法将输入转换为有效的时间戳");
+    }
+
+    return timestamp;
+}
+
 module.exports = {
     sleep,
     scheduleLoopTask,
     scheduleLoopTaskWithArgs,
     getDecimals,
+    formatQty,
+    formatQtyCeil,
     convertScientificToString,
     fileExists,
     deleteFilesInDirectory,
     writeStringToFile,
+    convertToTimestamp,
 };

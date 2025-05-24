@@ -58,7 +58,7 @@ const main = async () => {
     });
     exchangeClient.wsPmUserData();
     await sleep(2000);
-    let limit = 100;
+    let limit = 1;
     let i = 0;
     scheduleLoopTask(async () => {
         if (i >= limit) {

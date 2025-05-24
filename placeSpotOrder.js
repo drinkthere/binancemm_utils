@@ -61,8 +61,8 @@ const main = async () => {
             const result = await exchangeClient.placeSpotOrder(
                 "BUY",
                 "BNBUSDT",
-                0.1,
-                "550",
+                0.91,
+                "657.2",
                 {
                     type: "LIMIT",
                     newClientOrderId: clientOrderId,

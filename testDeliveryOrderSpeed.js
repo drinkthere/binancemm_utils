@@ -21,8 +21,9 @@ const keyIndex = configs.keyIndexMap[account];
 
 let options = {
     keyIndex,
-    deliveryColo: configs.deliveryColos[account],
     localAddress: configs.binanceLocalAddress[account],
+    intranet: false,
+    instType: "delivery",
 };
 const exchangeClient = new BinanceClient(options);
 
@@ -41,6 +42,13 @@ const orderUpdateHandler = async (orders) => {
             console.log(
                 `${clientOrderId} CANCELED ${order.orderTime} ${Date.now()}`
             );
+        } else if (
+            ["EXPIRED"].includes(order.orderStatus) &&
+            order.symbol == symbol
+        ) {
+            console.log(
+                `${clientOrderId} EXPIRED ${order.orderTime} ${Date.now()}`
+            );
         }
     }
 };
@@ -57,7 +65,14 @@ const main = async () => {
         positions: positionUpdateHandler,
     });
     exchangeClient.wsDeliverUserData();
+    await sleep(1000);
+    const limit = 100;
+    let i = 0;
     scheduleLoopTask(async () => {
+        i++;
+        if (i > limit) {
+            process.exit();
+        }
         const clientOrderId = genClientOrderId();
         const start = Date.now();
         // 下单
@@ -66,20 +81,20 @@ const main = async () => {
             "BUY",
             symbol,
             1,
-            500,
+            580,
             {
                 newClientOrderId: clientOrderId,
             }
         );
         console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
         //console.log(result)
-        console.log(`NEW ${Date.now() - start}`);
-        await sleep(2000);
+        //console.log(`NEW ${Date.now() - start}`);
+        await sleep(1000);
         // 撤单
         console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
         await exchangeClient.cancelDeliveryOrder(symbol, clientOrderId);
         console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
-        await sleep(2000);
+        await sleep(1000);
     });
 };
 main();

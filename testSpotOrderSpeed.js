@@ -68,45 +68,51 @@ const genClientOrderId = () => {
 };
 
 const main = async () => {
+    await exchangeClient.cancelAllSpotOrders("BNBUSDT");
+    process.exit();
+
     // const result = await exchangeClient.getMarginOpenOrders(symbol)
     // console.log(result);process.exit();
     exchangeClient.initWsEventHandler({
         orders: orderUpdateHandler,
-        positions: positionUpdateHandler,
-        balances: balanceUpdateHandler,
     });
-    exchangeClient.wsMarginUserData();
+    exchangeClient.wsSpotUserData();
     await sleep(2000);
     let limit = 1;
     let i = 0;
     scheduleLoopTask(async () => {
-        if (i >= limit) {
-            process.exit();
+        try {
+            if (i >= limit) {
+                process.exit();
+            }
+            i++;
+            const clientOrderId = genClientOrderId();
+            const start = Date.now();
+            // 下单
+            // console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
+            // await exchangeClient.placeSpotOrder("BUY", symbol, 30, 0.183, {
+            //     newClientOrderId: clientOrderId,
+            //     type: "LIMIT",
+            //     timeInForce: "IOC"
+            // });
+
+            // // await exchangeClient.placeMarginOrder("BUY", "BNBUSDT", 0.1, 586.9, {
+            // //     newClientOrderId: clientOrderId,
+            // // });
+
+            // console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
+            // //console.log(`NEW ${Date.now()-start}`)
+            // await sleep(2000);
+
+            // // 撤单
+            // console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
+            //await exchangeClient.cancelMarginOrder(symbol, clientOrderId);
+            // console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
+            //await sleep(2000);
+            //process.exit();
+        } catch (e) {
+            console.error(e);
         }
-        i++;
-        const clientOrderId = genClientOrderId();
-        const start = Date.now();
-        // 下单
-        console.log(`${clientOrderId} NEWSUBMIT ${Date.now()}`);
-        await exchangeClient.placeMarginOrder("BUY", symbol, 360, 0.183, {
-            newClientOrderId: clientOrderId,
-            // timeInForce: "IOC"
-        });
-
-        // await exchangeClient.placeMarginOrder("BUY", "BNBUSDT", 0.1, 586.9, {
-        //     newClientOrderId: clientOrderId,
-        // });
-
-        console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
-        //console.log(`NEW ${Date.now()-start}`)
-        await sleep(2000);
-        console.log(await exchangeClient.getResponseInfo());
-        // 撤单
-        console.log(`${clientOrderId} CANCELSUBMIT ${Date.now()}`);
-        await exchangeClient.cancelMarginOrder(symbol, clientOrderId);
-        console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
-        await sleep(2000);
-        //process.exit();
     });
 };
 main();

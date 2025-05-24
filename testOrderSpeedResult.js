@@ -1,6 +1,6 @@
 const fs = require("fs");
-const logFile = "private.log";
-const title = "Binance Private";
+const logFile = "ioc_filled.log";
+const title = "IOC Spot Filled Order ZoneA";
 {
     // 读取public.log文件内容
     const data = fs.readFileSync(logFile, "utf-8").trim().split("\n");
@@ -26,7 +26,9 @@ const title = "Binance Private";
             };
         }
 
-        if (type === "NEW") {
+        // if (type === "EXPIRED") {
+        // if (type === "NEW") {
+        if (type === "FILLED") {
             if (result[id] && result[id].submitTime) {
                 // 计算NEW的时间差
                 result[id].newTimeDiff = time - result[id].submitTime;

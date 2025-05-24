@@ -34,7 +34,7 @@ const statOrderService = new StatOrderService();
 const tgService = new TgService();
 let noOrders = 0;
 let maxNoOrdersTimes = 5;
-let spotAccount = account + "_spot";
+let spotAccount = account + "_triangle";
 const orderUpdateHandler = async (orders) => {
     for (let order of orders) {
         // 使用clientOrderId作为锁的key，避免并发引起的更新错误
@@ -157,7 +157,7 @@ const scheduleStatProfit = () => {
                 noOrders++;
                 if (noOrders >= maxNoOrdersTimes) {
                     // 报警
-                    tgService.sendMsg(`${account} orders numbers warning`);
+                    // tgService.sendMsg(`${account} orders numbers warning`);
                     noOrders = 0;
                     maxNoOrdersTimes = 2 * maxNoOrdersTimes;
                 }

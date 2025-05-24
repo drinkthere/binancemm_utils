@@ -21,6 +21,7 @@ let options = {
     keyIndex,
     apiKey: configs.keyMap[account].apiKey,
     apiSecret: configs.keyMap[account].apiSecret,
+    localAddress: configs.binanceLocalAddress[account],
     intranet,
     tradingWsUrl: intranet ? "ifTradingWsUrl" : "fTradingWsUrl",
     wsEndpoint: "wsFuturesOrder",
@@ -29,8 +30,8 @@ let options = {
 const exchangeClient = new BinanceClient(options);
 
 const symbol = "POLUSDT";
-const quantity = "20";
-const price = "0.45";
+const quantity = "40";
+const price = "0.2";
 
 const orderUpdateHandler = async (orders) => {
     for (let order of orders) {
@@ -71,7 +72,7 @@ const main = async () => {
         exchangeClient.wsInitOrderConnection(orderCallback);
         await sleep(2000);
 
-        let limit = 100;
+        let limit = 1;
         let i = 0;
         scheduleLoopTask(async () => {
             if (i >= limit) {
@@ -92,7 +93,7 @@ const main = async () => {
                 }
             );
             console.log(`${clientOrderId} NEWSUBMITTED ${Date.now()}`);
-            //console.log(result)
+            console.log(result);
             // console.log(`NEW ${Date.now()-start}`)
             await sleep(1000);
             // // 撤单
@@ -100,7 +101,6 @@ const main = async () => {
             await exchangeClient.wsCancelOrder(symbol, clientOrderId);
             console.log(`${clientOrderId} CANCELSUBMITTED ${Date.now()}`);
             await sleep(1000);
-            process.exit();
         });
     } catch (e) {
         console.error(e);
